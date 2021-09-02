@@ -1,0 +1,324 @@
+import glob
+import os
+import json
+
+from PIL import Image
+import numpy as np
+import torch
+from torchvision import transforms
+import trimesh
+
+
+def orient_img(img, out):
+	'''
+		Flips the vertical orientation and dimension order of an image.
+		If out is True, input is flipped and permuted as channel first.
+		Otherwise, input is permuted as channel last and vertically flipped.
+	'''
+	if out:
+		return img.flip((0)).permute(2,0,1).cpu()
+	else:
+		return img.permute(1,2,0).flip((0))
+
+
+class ImageCat:
+	def __init__(self):
+		self.image = None
+
+	def __call__(self, vector):
+		vector = vector.detach().cpu().view(-1,1)
+		if self.image is None:
+			self.image = vector
+			return
+		self.image = torch.cat([self.image, vector], dim=1)
+
+def load_image(filepath, shape=None, convert=None, orient=True):
+	if not os.path.exists(filepath):
+		raise RuntimeError('Image file not found:', filepath)
+	img = Image.open(filepath)
+
+	if convert:
+		img = img.convert(convert)
+	if shape:
+		img = transforms.Resize(shape[:2])(img)
+	if orient:
+		return orient_img(transforms.ToTensor()(img), out=False)
+	else:
+		return torch.tensor(transforms.ToTensor()(img))
+
+def save_image(filepath, img):
+	img = transforms.ToPILImage()(orient_img(img, out=True))
+	img.save(filepath, optimize=False, compress_level=0)
+
+
+### DATA LOADING ###
+
+
+def find_files(d, name, extensions):
+	if isinstance(extensions, str):
+		extensions = [extensions]
+	files = []
+	for e in extensions:
+		files.extend(glob.glob(os.path.join(d, name+'.'+e)))
+	return files
+
+def mesh_loader(model_dir, filename='model', force_mesh=True, extensions=['obj','ply']) -> trimesh.Trimesh:
+	files = find_files(model_dir, filename, extensions)
+
+	if len(files) > 1:
+		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
+	if len(files) == 0:
+		raise RuntimeError(f'Found no files matching: {filename}.{extensions}')
+	
+	force = 'mesh' if force_mesh else None
+	model = trimesh.load(files[0], force=force)  # TODO Here losing texturing on force. Try with PyTorch3D!
+
+	if len(model.faces) == 0:
+		raise RuntimeError(f'Model contains 0 faces (probably loaded a point cloud): {files[0]}')
+	return model
+
+def pointcloud_loader(model_dir, filename='pointcloud', extensions=['ply','npy']) -> trimesh.PointCloud:
+	files = find_files(model_dir, filename, extensions)
+	
+	if len(files) > 1:
+		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
+	if len(files) == 0:
+		raise RuntimeError(f'Found no files matching: {filename}.{extensions}')
+
+	f = files[0]
+	if f.endswith('.ply'):
+		pc = trimesh.load(f)
+	else:
+		pc = trimesh.PointCloud(np.load(f))
+
+	if hasattr(pc, 'faces'):
+		raise RuntimeError(f'Model contains faces (probably loaded a mesh): {f}')
+	if len(pc.vertices) == 0:
+		raise RuntimeError(f'Model contains 0 vertices (unknown reason): {f}')
+	return pc
+
+def voxel_loader(model_dir, filename='voxel', extensions=['binvox']) -> trimesh.PointCloud:
+	files = find_files(model_dir, filename, extensions)
+	
+	if len(files) > 1:
+		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
+	if len(files) == 0:
+		raise RuntimeError(f'Found no files matching: {filename}.{extensions}')
+
+	return trimesh.exchange.binvox.load_binvox(files[0])
+
+def images_loader(model_dir, filename='image_rgba.*', force_shape=None, extensions=['png','jpg']) -> torch.Tensor:
+	files = find_files(model_dir, filename, extensions)
+
+	if len(files) == 0:
+		raise RuntimeError(f'Found no files matching: {filename}.{extensions}')
+
+	sorted(files)  # Sort by name to ensure consistency.
+	images = []
+	for f in files:
+		images.append( load_image(f, force_shape) )
+
+	return images
+
+def cameraposes_loader(model_dir, filename='camera_poses', extensions='npy') -> np.ndarray:
+	files = find_files(model_dir, filename, extensions)
+
+	if len(files) == 0:
+		raise RuntimeError(f'Found no files matching: {filename}.{extensions}')
+	
+	if len(files) > 1:
+		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
+	return np.load(files[0])
+
+
+def multi_loader(dataset_dir, files, loader_fns):
+	if not os.path.exists(dataset_dir):
+		raise RuntimeError('Path does not exist:', dataset_dir)
+	
+	if callable(loader_fns):
+		loader_fns = [loader_fns]
+
+	if len(loader_fns) == 0:
+		raise RuntimeError('Specify loader functions!')
+
+	c = []
+	m = []
+	data = []
+	for f in files:
+		pth = os.path.join(dataset_dir,f)
+		dat = []
+		for l in loader_fns:
+			d = l(pth)
+			if d:
+				dat.append(d)
+		c.append(dataset_dir)
+		m.append(f)
+		data.append(dat)
+	return c, m, data
+
+
+class TransformZXYtoXYZ:
+	def __init__(self, device):
+		self.matrix = torch.tensor([
+			[ 1,  0,  0],
+			[ 0,  0,  1],
+			[ 0, -1,  0]
+		]).float().to(device)
+
+	def __call__(self, pts):
+		return torch.matmul(pts, self.matrix)
+
+
+def load_split(split_file, prefix=None):
+	files = []
+	with open(split_file, 'r') as f:
+		if split_file.endswith('.lst'):
+			for l in f:
+				if prefix:
+					files.append(os.path.join(prefix, l.strip()))
+				else:
+					files.append(l.strip())
+		elif split_file.endswith('.json'):
+			d = json.load(f)
+			for k,v in d.items():
+				for model in v:
+					if prefix:
+						files.append(os.path.join(prefix,k,model))
+					else:
+						files.append(os.path.join(k,model))
+		else:
+			raise RuntimeError('Unknown split file format:', split_file)
+	return files
+
+
+def collate_index_pose_image(samples):
+	'''
+		Concatenates data batches of multiple models.
+	'''
+	indices = []
+	poses = []
+	images = []
+	for i, po, im in samples:
+		indices.append(i)
+		poses.append(po)
+		images.append(im)
+	return torch.tensor(indices), torch.cat(poses, dim=0), torch.cat(images, dim=0)
+
+class MVRSilhouetteDataset(torch.utils.data.Dataset):
+	'''
+		Multi view reconstruction from silhouettes. 
+	'''
+	def __init__(self, split_file, data_dir='data', force_shape=None):
+		self.silh_files = load_split(split_file, prefix=data_dir)
+		self.force_shape = force_shape
+
+	def __len__(self):
+		return len(self.silh_files)
+	
+	def __getitem__(self, i):
+		'''
+			Reads all images and camera poses for given model as a batch.
+		'''
+		f = self.silh_files[i]
+		poses = torch.from_numpy(cameraposes_loader(f).astype(np.float32))
+		images = torch.stack(images_loader(f, filename='silhouette*', force_shape=self.force_shape))
+		return i, poses, images
+
+	def collate(self, samples):
+		return collate_index_pose_image(samples)
+
+class MVRColorDataset(torch.utils.data.Dataset):
+	'''
+		Multi view reconstruction from RGB images. 
+	'''
+	def __init__(self, split_file, data_dir='data', force_shape=None):
+		self.files = load_split(split_file, prefix=data_dir)
+		self.force_shape = force_shape
+
+	def __len__(self):
+		return len(self.files)
+	
+	def __getitem__(self, i):
+		'''
+			Reads all images and camera poses for given model as a batch.
+		'''
+		f = self.files[i]
+		poses = torch.from_numpy(cameraposes_loader(f).astype(np.float32))
+		images = torch.stack(images_loader(f, filename='rgb*', force_shape=self.force_shape))
+		return i, poses, images
+
+	def collate(self, samples):
+		return collate_index_pose_image(samples)
+
+class PointCloudDataset(torch.utils.data.Dataset):
+	def __init__(self, split_file, data_dir='data'):
+		self.files = load_split(split_file, prefix=data_dir)
+
+	def __len__(self):
+		return len(self.files)
+
+	def __getitem__(self, idx):
+		f = self.files[idx]
+		return torch.from_numpy(pointcloud_loader(f).vertices).float()
+
+	def collate(self, samples):
+		return torch.vstack(samples)
+
+class OrientedPointCloudDataset(torch.utils.data.Dataset):
+	def __init__(self, split_file, data_dir='data'):
+		self.files = load_split(split_file, prefix=data_dir)
+
+	def __len__(self):
+		return len(self.files)
+
+	def __getitem__(self, idx):
+		f = self.files[idx]
+		return torch.from_numpy(pointcloud_loader(f).vertices).float(), torch.from_numpy(pointcloud_loader(f, 'normalcloud').vertices).float()
+
+	def collate(self, samples):
+		points = []
+		normals = []
+		for s in samples:
+			pc, nrm = s
+			points.append(pc)
+			normals.append(nrm)
+		return torch.vstack(points), torch.vstack(normals)
+
+class GenericDataset(torch.utils.data.Dataset):
+	def __init__(self, dataset_dir, split_file, loaders):
+		with open(split_file, 'rb') as f:
+			files = []
+			for l in f:
+				files.append(l.strip())
+		self.classes, self.models, self.data = multi_loader(dataset_dir, files, loaders)
+
+	def __len__(self):
+		return len(self.classes)
+
+	def __get__(self, i):
+		return self.classes[i], self.models[i], self.data[i]
+
+class MergeDataset(torch.utils.data.Dataset):
+	def __init__(self, datasets):
+		self.datasets = datasets
+
+		l = [len(d) for d in datasets]
+		if min(l) != max(l):
+			raise RuntimeError('Datasets have different lengths!')
+
+	def __len__(self):
+		return len(self.datasets[0])
+
+	def __getitem__(self, i):
+		pieces = [d[i] for d in self.datasets]
+		return pieces
+
+	def collate(self, samples):
+		data = []
+		for i in range(len(self.datasets)):
+			d = []
+			for s in samples:
+				d.append(s[i])
+			data.append(self.datasets[i].collate(d))
+		return data
+
