@@ -68,7 +68,7 @@ class FileLogger(Logger):
 	def __init__(self, filepath, debug=True):
 		self.debug = debug
 		directory = os.path.dirname(filepath)
-		if not directory == '':
+		if directory != '':
 			os.makedirs(directory, exist_ok=True)
 		self.file = open(filepath, 'w')
 

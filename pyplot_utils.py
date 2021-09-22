@@ -33,6 +33,8 @@ class PlotContext:
 	def __exit__(self, type, value, trace):
 		if self.ex is not None and self.filename is not None:
 			self.ex.save_pyplot_image(self.filename)
+		elif self.filename is not None:
+			plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False)
 		if self.show:
 			plt.show()
 		if self.clear:
