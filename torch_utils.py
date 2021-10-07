@@ -33,8 +33,8 @@ class ReproducibleContext:
 			----------
 			seed : int or None
 				If integer, is used as seed for the random generators. If None, behaves as if it doesn't exist (convenience behaviour for random experiments).
-			device : str
-				Torch device of interest. If starts with 'cuda', random state of that CUDA device will be altered. Default: None
+			device : str or None
+				Torch device of interest. If None, set only the CPU side generator states. If starts with 'cuda', additionally set the CUDA device generator state. Default: None
 		'''
 		self.seed = seed
 		self.device = device

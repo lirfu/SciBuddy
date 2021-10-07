@@ -1,6 +1,6 @@
 import os
 
-from .tool_utils import Timer
+from .tools import Timer
 
 class Logger:
 	def __init__(self):
@@ -118,13 +118,31 @@ class TimedLogger(Logger):
 		self.log = logger
 
 	def d(self, *msgs):
-		self.log.d(f'({self.timer.str_lap()})', *msgs)
+		self.log.d(f'({self.timer.str_lap})', *msgs)
 
 	def i(self, *msgs):
-		self.log.i(f'({self.timer.str_lap()})', *msgs)
+		self.log.i(f'({self.timer.str_lap})', *msgs)
 
 	def e(self, *msgs):
-		self.log.e(f'({self.timer.str_lap()})', *msgs)
+		self.log.e(f'({self.timer.str_lap})', *msgs)
 
 	def __repr__(self):
 		return f'TimedLogger[{repr(self.log)}]'
+
+class OffsetLogger(Logger):
+	def __init__(self, logger, off_string):
+		super(OffsetLogger, self).__init__()
+		self.log = logger
+		self.offset = off_string
+
+	def d(self, *msgs):
+		self.log.d(self.offset, *msgs)
+
+	def i(self, *msgs):
+		self.log.i(self.offset, *msgs)
+
+	def e(self, *msgs):
+		self.log.e(self.offset, *msgs)
+
+	def __repr__(self):
+		return f'OffsetLogger[{repr(self.log)}]'

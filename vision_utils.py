@@ -1,57 +1,90 @@
 import torch
 
-def apply_kernel(img, kernel):
-	pad = int((kernel.shape[-1] - 1) / 2)
-	if len(kernel.shape) == 2:
-		kernel = kernel.unsqueeze(0).unsqueeze(0).to(img.device)
-	elif len(kernel.shape) == 3:
-		kernel = kernel.unsqueeze(0).to(img.device)
-	else:
-		raise RuntimeError('Valid kernel must have 2 or 3 dimensions.')
-	if img.shape[1] != kernel.shape[1]:
-		kernel = kernel.repeat(1,img.shape[1],1,1)
-	return torch.nn.functional.conv2d(img, weight=kernel, padding=pad)
+class ConvolveKernel(torch.Module):
+	def __init__(self, kernel):
+		super(ConvolveKernel, self).__init__()
+		if len(self.kernel.shape) == 2:
+			kernel = kernel.unsqueeze(0).unsqueeze(0)
+		elif len(kernel.shape) == 3:
+			kernel = kernel.unsqueeze(0)
+		else:
+			raise RuntimeError('Valid kernel must have 2 or 3 dimensions.')
+		self.kernel = kernel
+		self.padding = int((self.kernel.shape[-1] - 1) / 2)		
 
-sobel_kernel_x = torch.tensor([
-	[-1, 0, 1],
-	[-2, 0, 2],
-	[-1, 0, 1]
-]).float()
-sobel_kernel_y = torch.tensor([
-	[1, 2, 1],
-	[0, 0, 0],
-	[-1, -2, -1]
-]).float()
+	def forward(self, img):
+		kernel = self.kernel
+		if img.shape[1] != kernel.shape[1]:  # Apply same kernel across multiple channels.
+			kernel = kernel.repeat(1,img.shape[1],1,1)
+		return torch.nn.functional.conv2d(img, weight=kernel, padding=self.padding)
 
-def apply_sobel(img):
-	img = apply_kernel(img, sobel_kernel_x)
-	return apply_kernel(img, sobel_kernel_y)
+class CompositeConvolveKernel(torch.Module):
+	def __init__(self, kernels):
+		super(CompositeConvolveKernel, self).__init__()
+		if not isinstance(kernels, list):
+			kernels = [kernels]
+		layers = []
+		for k in kernels:
+			layers.append(ConvolveKernel(k))
+		self.kernels = torch.nn.Sequential(*layers)
 
-roberts_kernel_x = torch.tensor([
-	[1, 0],
-	[0, -1]
-]).float()
-roberts_kernel_y = torch.tensor([
-	[0, 1],
-	[-1, 0]
-]).float()
+	def forward(self, img):
+		return self.kernels(img)
 
-def apply_roberts(img):
-	img = apply_kernel(img, roberts_kernel_x)
-	return apply_kernel(img, roberts_kernel_y)
+class SobelKernel(CompositeConvolveKernel):
+	def __init__(self):
+		super(SobelKernel, self).__init__([
+			torch.FloatTensor([
+				[-1, 0, 1],
+				[-2, 0, 2],
+				[-1, 0, 1]
+			]),
+			torch.FloatTensor([
+				[ 1,  2,  1],
+				[ 0,  0,  0],
+				[-1, -2, -1]
+			])
+		])
 
-def make_box_kernel(size):
-	return torch.ones(size,size, dtype=torch.float) / size**2
+class RobertsKernel(CompositeConvolveKernel):
+	def __init__(self):
+		super(RobertsKernel, self).__init__([
+			torch.FloatTensor([
+				[1,  0],
+				[0, -1]
+			]),
+			torch.FloatTensor([
+				[ 0, 1],
+				[-1, 0]
+			])
+		])
 
-def apply_blurred_edge(img, img_b, highlight_inside=True, highlight_outside=True):
-	if highlight_inside and highlight_outside:
-		return img + img_b - 2. * img * img_b
-	elif highlight_inside:
-		return img * (1-img_b)
-	elif highlight_outside:
-		return img_b * (1-img)
-	else: 
-		return 1 - (img + img_b - 2. * img * img_b)
+class BoxKernel(ConvolveKernel):
+	def __init__(self, size):
+		super(BoxKernel, self).__init__(
+			torch.ones(size,size, dtype=torch.float) / size**2
+		)
+
+class BlurEdgeDetector(torch.Module):
+	"""
+		Detects edges in image by comparing it with blurred version.
+	"""
+	def __init__(self, blurrer, highlight_inside=True, highlight_outside=True):
+		super(BlurEdgeDetector, self).__init__()
+		self.blurrer = blurrer
+		self.inside = highlight_inside
+		self.outside = highlight_outside
+
+	def forward(self, img):
+		img_b = self.blurrer(img)
+		if self.inside and self.outside:
+			return img + img_b - 2. * img * img_b
+		elif self.inside:
+			return img * (1-img_b)
+		elif self.outside:
+			return img_b * (1-img)
+		else: 
+			return 1 - (img + img_b - 2. * img * img_b)
 
 
 # VFX.

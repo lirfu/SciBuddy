@@ -1,5 +1,3 @@
-import torch
-
 class LossTracker:
 	def __init__(self, lower_bound=None, cvg_slope=None, patience=None):
 		self.bound = lower_bound

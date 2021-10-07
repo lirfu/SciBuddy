@@ -5,22 +5,25 @@ import json
 import glob
 import shutil
 
-import torch
-from torchvision import transforms
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import torch
+from torchvision import transforms
 
 from .data_utils import orient_img
 from .logging_utils import LOG
 
 class CheckpointSaver:
-	def __init__(self, ex):
-		self.__min_loss = 1e1024
-		self.__filepath = ex.path('best_model.pt')
+	def __init__(self, ex, name=None):
+		self.__min_loss = 'inf'
+		if name is None:
+			self.__filepath = ex.path('best_model.pt')
+		else:
+			self.__filepath = ex.path(f'best_model_{name}.pt')
 
 	def save(self, dictionary, loss):
-		if self.__min_loss > loss:
+		if float(self.__min_loss) >= float(loss):
 			self.__min_loss = loss
 			torch.save(dictionary, self.__filepath)
 
@@ -28,6 +31,10 @@ class CheckpointSaver:
 		if os.path.exists(self.__filepath):
 			return torch.load(self.__filepath)
 		return None
+
+	@property
+	def loss(self):
+		return self.__min_loss
 
 
 class GifMaker:
@@ -122,6 +129,9 @@ class Experiment:
 		with open(self.path('parameters.json'), 'w') as f:
 			json.dump(self.config, f, indent='\t')
 
+	def __getitem__(self, k):
+		return self.config[k]
+
 	def __str__(self):
 		'''
 			Basename of the experiment directory path.
@@ -145,10 +155,20 @@ class Experiment:
 		return os.path.join(os.path.dirname(self.dir),dirs[-1])
 
 	def pretty_config(self):
-		string = 'Configuration:\n'
-		for k,v in self.config.items():
-			string += '  - {}:\t{}\n'.format(k,v)
-		return string
+		strings = ['Configuration:']
+		def r(d, ss, i=1):
+			offset = '  '*i
+			for k,v in d.items():
+				if isinstance(v, dict):
+					ss.append(f'{offset}- {k}:')
+					r(v, ss, i+1)
+				else:
+					ss.append(f'{offset}- {k}: {v}')
+		r(self.config, strings)
+		return '\n'.join(strings)
+
+	def exists(self, filename):
+		return os.path.exists(self.path(filename))
 
 	def makedir(self, dirname):
 		'''
