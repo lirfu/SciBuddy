@@ -9,13 +9,13 @@ class Logger:
 	def set_debug(self, b):
 		self.debug = bool(b)
 
-	def d(self, *msgs):
+	def d(self, *msgs, **kwargs):
 		raise RuntimeError('Not implemented')
 
-	def i(self, *msgs):
+	def i(self, *msgs, **kwargs):
 		raise RuntimeError('Not implemented')
 
-	def e(self, *msgs):
+	def e(self, *msgs, **kwargs):
 		raise RuntimeError('Not implemented')
 
 	def __repr__(self):
@@ -25,15 +25,15 @@ class StdoutLogger(Logger):
 	def __init__(self, debug=True):
 		self.debug = debug
 
-	def d(self, *msgs):
+	def d(self, *msgs, **kwargs):
 		super(StdoutLogger, self).__init__()
 		if self.debug:
 			print(*msgs)
 
-	def i(self, *msgs):
+	def i(self, *msgs, **kwargs):
 		print(*msgs)
 
-	def e(self, *msgs):
+	def e(self, *msgs, **kwargs):
 		print('Err -', *msgs)
 
 	def __repr__(self):
@@ -53,16 +53,16 @@ class LOG:
 		return LOG.__instance
 
 	@staticmethod
-	def d(*msgs):
-		LOG.__instance.logger.d(*msgs)
+	def d(*msgs, **kwargs):
+		LOG.__instance.logger.d(*msgs, **kwargs)
 
 	@staticmethod
-	def i(*msgs):
-		LOG.__instance.logger.i(*msgs)
+	def i(*msgs, **kwargs):
+		LOG.__instance.logger.i(*msgs, **kwargs)
 
 	@staticmethod
-	def e(*msgs):
-		LOG.__instance.logger.e(*msgs)
+	def e(*msgs, **kwargs):
+		LOG.__instance.logger.e(*msgs, **kwargs)
 
 class FileLogger(Logger):
 	def __init__(self, filepath, debug=True):
@@ -75,16 +75,16 @@ class FileLogger(Logger):
 	def __del__(self):
 		self.file.close()
 
-	def d(self, *msgs):
+	def d(self, *msgs, **kwargs):
 		if self.debug:
 			self.file.write(' '.join([str(m) for m in msgs])+'\n')
 			self.file.flush()
 
-	def i(self, *msgs):
+	def i(self, *msgs, **kwargs):
 		self.file.write(' '.join([str(m) for m in msgs])+'\n')
 		self.file.flush()
 
-	def e(self, *msgs):
+	def e(self, *msgs, **kwargs):
 		self.file.write('Err - ')
 		self.file.write(' '.join([str(m) for m in msgs])+'\n')
 		self.file.flush()
@@ -96,17 +96,17 @@ class MultiLogger(Logger):
 	def __init__(self, *loggers):
 		self.logs = list(loggers)
 
-	def d(self, *msgs):
+	def d(self, *msgs, **kwargs):
 		for l in self.logs:
-			l.d(*msgs)
+			l.d(*msgs, **kwargs)
 
-	def i(self, *msgs):
+	def i(self, *msgs, **kwargs):
 		for l in self.logs:
-			l.i(*msgs)
+			l.i(*msgs, **kwargs)
 
-	def e(self, *msgs):
+	def e(self, *msgs, **kwargs):
 		for l in self.logs:
-			l.e(*msgs)
+			l.e(*msgs, **kwargs)
 
 	def __repr__(self):
 		return 'MultiLogger[' + ','.join([repr(l) for l in self.logs]) + ']'
@@ -117,14 +117,22 @@ class TimedLogger(Logger):
 		self.timer = Timer()
 		self.log = logger
 
-	def d(self, *msgs):
-		self.log.d(f'({self.timer.str_lap})', *msgs)
+	def d(self, *msgs, quiet=True, **kwargs):
+		if quiet:
+			self.log.d(f'({self.timer.str_lap_quiet})', *msgs, **kwargs)
+		else:
+			self.log.d(f'({self.timer.str_lap})', *msgs, **kwargs)
 
-	def i(self, *msgs):
-		self.log.i(f'({self.timer.str_lap})', *msgs)
-
-	def e(self, *msgs):
-		self.log.e(f'({self.timer.str_lap})', *msgs)
+	def i(self, *msgs, quiet=False, **kwargs):
+		if quiet:
+			self.log.i(f'({self.timer.str_lap_quiet})', *msgs, **kwargs)
+		else:
+			self.log.i(f'({self.timer.str_lap})', *msgs, **kwargs)
+	def e(self, *msgs, quiet=True, **kwargs):
+		if quiet:
+			self.log.e(f'({self.timer.str_lap_quiet})', *msgs, **kwargs)
+		else:
+			self.log.e(f'({self.timer.str_lap})', *msgs, **kwargs)
 
 	def __repr__(self):
 		return f'TimedLogger[{repr(self.log)}]'
@@ -135,14 +143,14 @@ class OffsetLogger(Logger):
 		self.log = logger
 		self.offset = off_string
 
-	def d(self, *msgs):
-		self.log.d(self.offset, *msgs)
+	def d(self, *msgs, **kwargs):
+		self.log.d(self.offset, *msgs, **kwargs)
 
-	def i(self, *msgs):
-		self.log.i(self.offset, *msgs)
+	def i(self, *msgs, **kwargs):
+		self.log.i(self.offset, *msgs, **kwargs)
 
-	def e(self, *msgs):
-		self.log.e(self.offset, *msgs)
+	def e(self, *msgs, **kwargs):
+		self.log.e(self.offset, *msgs, **kwargs)
 
 	def __repr__(self):
 		return f'OffsetLogger[{repr(self.log)}]'

@@ -1,6 +1,29 @@
 import time
 import gc
-	
+import math
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def show_images(*imgs):
+	N = len(imgs)
+	Nr = math.sqrt(N)
+	aspect = 16 / 9
+	W = math.ceil(Nr * aspect)
+	H = math.ceil(N / W)
+	plt.figure()
+	for i,img in enumerate(imgs):
+		if isinstance(img, np.ndarray):
+			print(f'Image {i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+		plt.subplot(H,W,i+1)
+		im = plt.imshow(img)
+		plt.colorbar(im)
+	plt.show()
+
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
 
 class Timer:
 	def __init__(self):
@@ -30,6 +53,13 @@ class Timer:
 		self.lap_t = t
 		return d
 
+	@property
+	def lap_quiet(self):
+		'''
+			Returns time from last recorded lap. Doesn't modify the last lap point.
+		'''
+		return time.time() - self.lap_t
+
 	def __format(self, dt):
 		h = int(dt / 3600)
 		m = int(dt / 60 % 60)
@@ -49,6 +79,13 @@ class Timer:
 			Returns formatted string of time from last lap and sets lap point to current.
 		'''
 		return self.__format(self.lap)
+
+	@property
+	def str_lap_quiet(self):
+		'''
+			Return formatted string of time from last lap, without modifying the last lap point.
+		'''
+		return self.__format(self.lap_quiet)
 
 	def __str__(self):
 		'''
