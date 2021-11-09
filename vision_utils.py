@@ -1,6 +1,13 @@
 import math
 import torch
 
+
+def chw_to_hwc(img):
+	return img.moveaxis(0,2)
+
+def hwc_to_chw(img):
+	return img.moveaxis(2,0)
+
 class ConvolveKernel(torch.nn.Module):
 	"""
 		Simple kernel convolution module.
@@ -8,19 +15,21 @@ class ConvolveKernel(torch.nn.Module):
 	def __init__(self, kernel, padding=None, padding_mode='constant', padding_value=0, stride=1, dilation=1):
 		super(ConvolveKernel, self).__init__()
 		self.kernel = kernel
+		# Expand kernel shape.
 		if len(self.kernel.shape) == 2:
-			kernel = kernel.unsqueeze(0).unsqueeze(0)
+			self.kernel = self.kernel.unsqueeze(0).unsqueeze(0)
 		elif len(kernel.shape) == 3:
-			kernel = kernel.unsqueeze(0)
+			self.kernel = self.kernel.unsqueeze(0)
 		else:
 			raise RuntimeError('Valid kernel must have 2 or 3 dimensions.')
-		if padding is None:
-			self.kernel.shape[-1]
-			padding = (  # 'Same' padding.
-				int((self.kernel.shape[-2] - 1) / 2),
-				int((self.kernel.shape[-2] - 1) / 2),
-				int((self.kernel.shape[-1] - 1) / 2),
-				int((self.kernel.shape[-1] - 1) / 2)
+		# Calculate padding if not given.
+		if padding is None:  # Estimate the 'same' padding (for even kernels padded right/bottom, for odd kernels on both sides).
+			H, W = self.kernel.shape[-2], self.kernel.shape[-1]
+			padding = (
+				int(H/2) - 1 + H%2,
+				int(H/2),
+				int(W/2) - 1 + W%2,
+				int(W/2)
 			)
 		self.padding = padding
 		self.padding_mode = padding_mode
@@ -71,9 +80,13 @@ class CompositeConvolveKernel(torch.nn.Module):
 	def forward(self, img):
 		return self.kernels(img)
 
+class IdentityKernel(ConvolveKernel):
+	def __init__(self, **kwargs):
+		super(IdentityKernel, self).__init__(torch.tensor([[1.]]), **kwargs)
+
 class SobelKernel(CompositeConvolveKernel):
 	"""
-		Sobel's edge detector.
+		Sobel's corner detector.
 	"""
 	def __init__(self):
 		super(SobelKernel, self).__init__([
@@ -88,6 +101,9 @@ class SobelKernel(CompositeConvolveKernel):
 				[-1, -2, -1]
 			])
 		])
+
+	def forward(self, img):
+		return super().forward(img) / 9
 
 class RobertsKernel(CompositeConvolveKernel):
 	"""
@@ -104,6 +120,9 @@ class RobertsKernel(CompositeConvolveKernel):
 				[-1, 0]
 			])
 		])
+	
+	def forward(self, img):
+		return super().forward(img) / 2
 
 class BoxKernel(ConvolveKernel):
 	"""
@@ -158,8 +177,51 @@ class GaussianKernel(ConvolveKernel):
 		gx, gy = torch.meshgrid(k, k)
 		k = torch.exp(-0.5/std * (gx*gx+gy*gy))
 		k /= 2. * math.pi * std
-		print(k.min(), k.max())
+		# print(k.min(), k.max())  # TODO
 		super(GaussianKernel, self).__init__(k, **kwargs)
+
+class VerticalEdgeKernel(ConvolveKernel):
+	def __init__(self, **kwargs):
+		super(VerticalEdgeKernel, self).__init__(torch.tensor([
+			[-1,0,1],
+			[-1,0,1],
+			[-1,0,1]
+		], dtype=torch.float32) / 3, **kwargs)
+
+class HorizontalEdgeKernel(ConvolveKernel):
+	def __init__(self, **kwargs):
+		super(HorizontalEdgeKernel, self).__init__(torch.tensor([
+			[-1,-1,-1],
+			[0,0,0],
+			[1,1,1]
+		], dtype=torch.float32) / 3, **kwargs)
+
+class RotateKernel(ConvolveKernel):
+	def __init__(self, kernel, phi, **kwargs):
+		kernel = kernel.kernel.squeeze(0).squeeze(0)
+		s, c = -math.sin(phi), math.cos(phi)
+		h, w = (kernel.shape[-2]-1)/2, (kernel.shape[-1]-1)/2
+		rotator = torch.tensor([
+			[c, -s, -c*w + s*h + w],
+			[s,  c, -s*w - c*h + h],
+			[0, 0, 1]
+		])
+		h, w = kernel.shape[-2], kernel.shape[-1]
+		indices = torch.stack([torch.arange(w).reshape(-1,1).repeat(1,h), torch.arange(h).reshape(1,-1).repeat(w,1), torch.ones((w,h))], dim=2)
+		end_indices = torch.stack([rotator.matmul(i) for r in indices for i in r])
+		m = end_indices.floor().long().clip(torch.tensor([0,0,0]),torch.tensor([h-1,w-1,1]))
+		M = end_indices.round().long().clip(torch.tensor([0,0,0]),torch.tensor([h-1,w-1,1]))
+		kk = torch.zeros(h*w)
+		kk += kernel[m[:,0], m[:,1]]
+		kk += kernel[m[:,0], M[:,1]]
+		kk += kernel[M[:,0], m[:,1]]
+		kk += kernel[M[:,0], M[:,1]]
+		kk = kk.reshape(h,w) / 4
+		self.m, self.M = torch.relu(-kk).sum(), torch.relu(kk).sum()
+		super(RotateKernel, self).__init__(kk)
+
+	def forward(self, img):
+		return (super().forward(img) - self.m) / (self.M - self.m)
 
 class BlurEdgeDetector(torch.nn.Module):
 	"""
@@ -216,11 +278,58 @@ class CumulativeImageGhosting:
 
 
 if __name__ == '__main__':
-	x = torch.tensor([[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,1,1,1,1],[1,1,1,1,1]]).float()
-	print(x.int())
-	k = BoxKernel(3)
-	print(k(x))
-	k = ErosionKernel(3)
-	print(k(x).int())
-	k = DilationKernel(3, binarize=False, padding_mode='replicate')
-	print(k(x))
+	# Display kernel functions.
+	from tools import show_images
+	kernels = {
+		'Identity': IdentityKernel(),
+		# 'Sobel': SobelKernel(),
+		# 'Roberts': RobertsKernel(),
+		# 'Box': BoxKernel(3),
+		# 'Erosion': ErosionKernel(3),
+		# 'Dilation': DilationKernel(3),
+		# 'Gaussian': GaussianKernel(3, 1),
+
+		'Vertical edges': VerticalEdgeKernel(),
+		'Rotation 15': RotateKernel(VerticalEdgeKernel(), -math.pi / 12),
+		'Rotation 30': RotateKernel(VerticalEdgeKernel(), -math.pi / 6),
+		'Rotation 45': RotateKernel(VerticalEdgeKernel(), -math.pi / 4),
+		'Rotation 60': RotateKernel(VerticalEdgeKernel(), -math.pi / 3),
+		'Rotation 75': RotateKernel(VerticalEdgeKernel(), -math.pi * 5 / 12),
+		'Rotation 90': RotateKernel(VerticalEdgeKernel(), -math.pi / 2),
+		'Horizontal edges': HorizontalEdgeKernel()
+	}
+	img = torch.zeros((32,32), dtype=torch.float32)
+	img[0,:] = 1
+	img[:6,0] = 1
+	img[:6,-1] = 1
+	img[10:21, 5:11] = 1
+	img[8, 20] = 1
+	img[20, 15:26] = 1
+	img[15:26, 20] = 1
+	images = []
+	for n,k in kernels.items():
+		images.append(chw_to_hwc(k(img).squeeze(0)).numpy())
+	show_images(*images, names=list(kernels.keys()))
+
+	# # Live camera demo.
+	# from camera_utils import *
+	# import cv2, time
+	# cam = ComputerCamera()
+	# k = SobelKernel()
+	# def get_img(cam, k):
+	# 	img = cvframe_to_torch_float(cam.get_frame())
+	# 	img = k(img).squeeze(0)
+	# 	return torch_float_to_cvframe(img)
+	# cv2.namedWindow("preview")
+	# frame = get_img(cam, k)
+	# t = time.time()
+	# while frame is not None:
+	# 	cv2.imshow("preview", frame)
+	# 	key = cv2.waitKey(1)
+	# 	if key == 27: # exit on ESC
+	# 		break
+	# 	dt = time.time()-t
+	# 	t = time.time()
+	# 	print('{: 8.2f} ms ({: 5.2f} FPS)'.format(dt*1000., 1./dt))
+	# 	frame = get_img(cam, k)
+	# cv2.destroyWindow("preview")
