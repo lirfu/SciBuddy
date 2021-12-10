@@ -14,7 +14,10 @@ def show_images(*imgs, names=None):
 	plt.figure()
 	for i,img in enumerate(imgs):
 		if isinstance(img, np.ndarray):
-			print(f'Image {i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+			if names is None:
+				print(f'Image {i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+			else:
+				print(f'{names[i]} of shape {img.shape} has range: [{img.min()},{img.max()}]')
 		plt.subplot(H,W,i+1)
 		if names is not None:
 			plt.title(names[i])
