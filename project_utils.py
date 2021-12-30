@@ -202,8 +202,8 @@ class Experiment:
 		img = transforms.ToPILImage()(orient_img(img, out=True))
 		img.save(self.path(filepath), optimize=False, compress_level=0)
 
-	def save_pyplot_image(self, name, transparent=False):
+	def save_pyplot_image(self, name, transparent=False, **kwargs):
 		'''
 			Save pyplot buffer image to given filepath. Filepath gets appended to experiment path.
 		'''
-		plt.savefig(self.path(name), bbox_inches='tight', pad_inches=0, transparent=transparent)
+		plt.savefig(self.path(name), bbox_inches='tight', pad_inches=0, transparent=transparent, **kwargs)

@@ -86,8 +86,17 @@ class MultistageConvolutionKernel(torch.nn.Module):
 class GradientKernel(torch.nn.Module):
 	"""
 		Kernel convolution module for image gradients from decomposed convolutions (e.g. vertical kernel and horizontal kernel). If given kernel is not instance of `ConvolutionKernel`, constructs one with given kernel array.
+		
+		Parameters
+		----------
+		kernel_v, kernel_h: Union(ConvolutionKernel,torch.Tensor)
+			Vertical and horizontal gradient kernel.
+		length: bool
+			If `True` returns only the length of the gradient vector. Otherwise, returns horizontal and vertical component of gradient as two-channel image.
+		normalize: bool
+			If `True` normalizes gradient vector. Active only if returning graident vector.
 	"""
-	def __init__(self, kernel_v, kernel_h):
+	def __init__(self, kernel_v, kernel_h, length=False, normalize=False, **kwargs):
 		super(GradientKernel, self).__init__()
 		if not isinstance(kernel_v, ConvolutionKernel):
 			kernel_v = ConvolutionKernel(kernel_v)
@@ -95,10 +104,16 @@ class GradientKernel(torch.nn.Module):
 			kernel_h = ConvolutionKernel(kernel_h)
 		self.kv = kernel_v
 		self.kh = kernel_h
+		self.length = length
+		self.normalize = normalize
 
 	def forward(self, img):
 		v, h = self.kv(img), self.kh(img)
-		return torch.sqrt(v**2 + h**2)
+		if self.length:
+			return torch.sqrt(v**2 + h**2)
+		g = torch.cat([h,v], dim=1)
+		if self.normalize:
+			return g / torch.norm(g, dim=1)
 
 class IdentityKernel(ConvolutionKernel):
 	def __init__(self, **kwargs):
@@ -129,7 +144,7 @@ class SobelGradientKernel(GradientKernel):
 	"""
 		Sobel's gradient kernel.
 	"""
-	def __init__(self):
+	def __init__(self, **kwargs):
 		super(SobelGradientKernel, self).__init__(
 			torch.FloatTensor([
 				[-1, 0, 1],
@@ -141,7 +156,7 @@ class SobelGradientKernel(GradientKernel):
 				[ 0,  0,  0],
 				[-1, -2, -1]
 			])
-		)
+		, **kwargs)
 
 class RobertsKernel(MultistageConvolutionKernel):
 	"""
@@ -166,7 +181,7 @@ class RobertsGradientKernel(GradientKernel):
 	"""
 		Robert's gradient kernel.
 	"""
-	def __init__(self):
+	def __init__(self, **kwargs):
 		super(RobertsGradientKernel, self).__init__(
 			torch.FloatTensor([
 				[1,  0],
@@ -176,7 +191,7 @@ class RobertsGradientKernel(GradientKernel):
 				[ 0, 1],
 				[-1, 0]
 			])
-		)
+		, **kwargs)
 
 	def forward(self, img):
 		return super().forward(img) / 2
@@ -357,7 +372,7 @@ if __name__ == '__main__':
 			[1,1],
 			[0,0]
 		], dtype=torch.float32)/2, convolution_fn=maxconv)
-		
+
 		# 'Sobel': SobelKernel(),
 		# 'Roberts': RobertsKernel(),
 		# 'Box': BoxKernel(3),

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-def show_images(*imgs, names=None):
+def show_images(*imgs, names=None, margins=0.01, show=True):
 	N = len(imgs)
 	Nr = math.sqrt(N)
 	aspect = 16 / 9
@@ -23,7 +23,16 @@ def show_images(*imgs, names=None):
 			plt.title(names[i])
 		im = plt.imshow(img)
 		plt.colorbar(im)
-	plt.show()
+	plt.gcf().subplots_adjust(
+		top=1-margins,
+		bottom=margins,
+		left=margins,
+		right=1-margins,
+		hspace=margins,
+		wspace=margins
+	)
+	if show:
+		plt.show()
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
