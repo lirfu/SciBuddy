@@ -68,7 +68,11 @@ class GifMaker:
 			LOG.e(f'No images found to generate {self.name}.gif!')
 			return
 		img, *imgs = l
-		img.save(fp=self.ex.path(self.name+'.gif'), format='GIF', append_images=imgs, save_all=True, duration=int(duration_sec*1000/(self.index-1)), loop=loop, palette='RGB', interlace=False, optimize=False, include_color_table=True)
+		if isinstance(duration_sec, int):  # Calculate global per-frame duration.
+			duration = int(duration_sec*1000/(self.index-1))
+		else:  # Convert per-frame to millicsconds.
+			duration = [int(d*1000) for d in duration_sec]
+		img.save(fp=self.ex.path(self.name+'.gif'), format='GIF', append_images=imgs, save_all=True, duration=duration, loop=loop, palette='RGB', interlace=False, optimize=False, include_color_table=True)
 
 	def clear(self):
 		self.index = 1
@@ -131,6 +135,9 @@ class Experiment:
 
 	def __getitem__(self, k):
 		return self.config[k]
+
+	def __contains__(self, k):
+		return k in self.config
 
 	def __str__(self):
 		'''

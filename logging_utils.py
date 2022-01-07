@@ -117,22 +117,20 @@ class TimedLogger(Logger):
 		self.timer = Timer()
 		self.log = logger
 
-	def d(self, *msgs, quiet=True, **kwargs):
+	def __str(self, quiet, total):
 		if quiet:
-			self.log.d(f'({self.timer.str_lap_quiet})', *msgs, **kwargs)
+			return f'({self.timer.str_total if total else self.timer.str_lap_quiet})'
 		else:
-			self.log.d(f'({self.timer.str_lap})', *msgs, **kwargs)
+			return f'({self.timer.str_total if total else self.timer.str_lap})'
 
-	def i(self, *msgs, quiet=False, **kwargs):
-		if quiet:
-			self.log.i(f'({self.timer.str_lap_quiet})', *msgs, **kwargs)
-		else:
-			self.log.i(f'({self.timer.str_lap})', *msgs, **kwargs)
-	def e(self, *msgs, quiet=True, **kwargs):
-		if quiet:
-			self.log.e(f'({self.timer.str_lap_quiet})', *msgs, **kwargs)
-		else:
-			self.log.e(f'({self.timer.str_lap})', *msgs, **kwargs)
+	def d(self, *msgs, quiet=True, total=False, **kwargs):
+		self.log.d(self.__str(quiet, total), *msgs, **kwargs)
+
+	def i(self, *msgs, quiet=False, total=False, **kwargs):
+		self.log.i(self.__str(quiet, total), *msgs, **kwargs)
+
+	def e(self, *msgs, quiet=True, total=False, **kwargs):
+		self.log.e(self.__str(quiet, total), *msgs, **kwargs)
 
 	def __repr__(self):
 		return f'TimedLogger[{repr(self.log)}]'
