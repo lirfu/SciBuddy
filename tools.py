@@ -1,43 +1,9 @@
 import time
 import gc
-import math
 
-import numpy as np
-import matplotlib.pyplot as plt
 
-def show_images(*imgs, names=None, margins=0.01, show=True):
-	N = len(imgs)
-	Nr = math.sqrt(N)
-	aspect = 16 / 9
-	W = math.ceil(Nr * aspect)
-	H = math.ceil(N / W)
-	plt.figure()
-	for i,img in enumerate(imgs):
-		if isinstance(img, np.ndarray):
-			if names is None:
-				print(f'Image {i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
-			else:
-				print(f'{names[i]} of shape {img.shape} has range: [{img.min()},{img.max()}]')
-		plt.subplot(H,W,i+1)
-		if names is not None:
-			plt.title(names[i])
-		im = plt.imshow(img)
-		plt.colorbar(im)
-	plt.gcf().subplots_adjust(
-		top=1-margins,
-		bottom=margins,
-		left=margins,
-		right=1-margins,
-		hspace=margins,
-		wspace=margins
-	)
-	if show:
-		plt.show()
-
-class AttrDict(dict):
-    def __init__(self, *args, **kwargs):
-        super(AttrDict, self).__init__(*args, **kwargs)
-        self.__dict__ = self
+def arr_stats(a):
+	return f'Range {(a.min(), a.max())} with shape {a.shape} and type {a.dtype}'
 
 class Timer:
 	def __init__(self):
@@ -109,6 +75,9 @@ class Timer:
 
 
 class GarbageCollectionContext:
+	"""
+		Context that forces garbage collection upon exit.
+	"""
 	def __init__(self, freeze=False):
 		self.freeze = freeze
 

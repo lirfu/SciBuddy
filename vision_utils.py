@@ -1,5 +1,4 @@
 import math
-from scipy.ndimage import interpolation
 import torch
 import torchvision
 
@@ -9,6 +8,9 @@ def chw_to_hwc(img):
 
 def hwc_to_chw(img):
 	return img.moveaxis(2,0)
+
+def rb_to_rgb(img):
+	return torch.stack([img[...,0,:,:], torch.zeros(img.shape[-2:]), img[...,1,:,:]], dim=0)
 
 class ConvolutionKernel(torch.nn.Module):
 	"""
@@ -47,7 +49,8 @@ class ConvolutionKernel(torch.nn.Module):
 		if len(img.shape) == 3:  # Add missing batch dimension.
 			img = img.unsqueeze(0)
 		if img.shape[1] != kernel.shape[1]:  # Apply same kernel across multiple channels.
-			kernel = kernel.repeat(1,img.shape[1],1,1)
+			C = img.shape[1]
+			kernel = torch.eye(C).reshape(C, C, 1, 1) * kernel
 		img = torch.nn.functional.pad(
 			img,
 			pad=self.padding,
@@ -96,14 +99,14 @@ class GradientKernel(torch.nn.Module):
 		normalize: bool
 			If `True` normalizes gradient vector. Active only if returning graident vector.
 	"""
-	def __init__(self, kernel_v, kernel_h, length=False, normalize=False, **kwargs):
+	def __init__(self, kernel_h, kernel_v, length=False, normalize=False, **kwargs):
 		super(GradientKernel, self).__init__()
-		if not isinstance(kernel_v, ConvolutionKernel):
-			kernel_v = ConvolutionKernel(kernel_v)
 		if not isinstance(kernel_h, ConvolutionKernel):
 			kernel_h = ConvolutionKernel(kernel_h)
-		self.kv = kernel_v
+		if not isinstance(kernel_v, ConvolutionKernel):
+			kernel_v = ConvolutionKernel(kernel_v)
 		self.kh = kernel_h
+		self.kv = kernel_v
 		self.length = length
 		self.normalize = normalize
 
@@ -114,6 +117,7 @@ class GradientKernel(torch.nn.Module):
 		g = torch.cat([h,v], dim=1)
 		if self.normalize:
 			return g / torch.norm(g, dim=1)
+		return g
 
 class IdentityKernel(ConvolutionKernel):
 	def __init__(self, **kwargs):
@@ -131,9 +135,9 @@ class SobelKernel(MultistageConvolutionKernel):
 				[-1, 0, 1]
 			]),
 			torch.FloatTensor([
-				[ 1,  2,  1],
+				[-1, -2, -1],
 				[ 0,  0,  0],
-				[-1, -2, -1]
+				[ 1,  2,  1]
 			])
 		])
 
@@ -150,12 +154,12 @@ class SobelGradientKernel(GradientKernel):
 				[-1, 0, 1],
 				[-2, 0, 2],
 				[-1, 0, 1]
-			]),
+			]) / 4.,
 			torch.FloatTensor([
-				[ 1,  2,  1],
+				[-1, -2, -1],
 				[ 0,  0,  0],
-				[-1, -2, -1]
-			])
+				[ 1,  2,  1]
+			]) / 4
 		, **kwargs)
 
 class RobertsKernel(MultistageConvolutionKernel):
@@ -169,7 +173,7 @@ class RobertsKernel(MultistageConvolutionKernel):
 				[0, -1]
 			]),
 			torch.FloatTensor([
-				[ 0, 1],
+				[0, 1],
 				[-1, 0]
 			])
 		])
@@ -188,7 +192,7 @@ class RobertsGradientKernel(GradientKernel):
 				[0, -1]
 			]),
 			torch.FloatTensor([
-				[ 0, 1],
+				[0, 1],
 				[-1, 0]
 			])
 		, **kwargs)
@@ -364,14 +368,15 @@ class CumulativeImageGhosting:
 if __name__ == '__main__':
 	torch.manual_seed(42)
 	# Display kernel functions.
-	from tools import show_images
+	from pyplot_utils import show_images
 	size = 16
 	kernels = {
 		'Identity': IdentityKernel(),
-		'Test1': ConvolutionKernel(torch.tensor([
-			[1,1],
-			[0,0]
-		], dtype=torch.float32)/2, convolution_fn=maxconv)
+
+		'SobelGradient': SobelGradientKernel(length=False),
+		'SobelGradient1': SobelGradientKernel(length=True),
+		'Monster': torch.nn.Sequential(SobelGradientKernel(length=False), BoxKernel(2))
+		# 'RobertsGradient': RobertsGradientKernel(length=False),
 
 		# 'Sobel': SobelKernel(),
 		# 'Roberts': RobertsKernel(),
@@ -405,6 +410,11 @@ if __name__ == '__main__':
 		# 'Rotation -75': rotated_kernel(VerticalDilation(size), -math.pi * 5 / 12, True),
 		# 'Rotation -90': rotated_kernel(VerticalDilation(size), -math.pi / 2, True),
 		# 'Horizontal dilation': HorizontalDilation(size)
+
+		# 'Test1': ConvolutionKernel(torch.tensor([
+		# 	[1,1],
+		# 	[0,0]
+		# ], dtype=torch.float32)/2, convolution_fn=maxconv)
 	}
 	img = torch.zeros((32,32), dtype=torch.float32)
 	img[0,:] = 1
@@ -420,9 +430,16 @@ if __name__ == '__main__':
 		img[6-i, i] = 1
 	# img *= torch.rand_like(img)
 	# img = torchvision.transforms.Resize((1024)*2)(img.unsqueeze(0).unsqueeze(0)).squeeze(0).squeeze(0)
+	
+	# Construct and display results.
 	images = []
 	for n,k in kernels.items():
-		images.append(chw_to_hwc(k(img).squeeze(0)).numpy())
+		r = k(img).squeeze(0)
+		if r.shape[0] == 2: # Stack in RB channels.
+			# print(f'Range for {n}: [{r.min()}, {r.max()}]  {r[:,15,4]}  {r[:,9,7]}  {r[:,20,7]}  {r[:,15,10]}')
+			r = (r - r.min()) / (r.max() - r.min())  # Normalize to [0,1].
+			r = rb_to_rgb(r)
+		images.append(chw_to_hwc(r).numpy())
 	show_images(*images, names=list(kernels.keys()))
 
 	# # Live camera demo.

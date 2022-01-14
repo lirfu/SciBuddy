@@ -64,6 +64,19 @@ class LOG:
 	def e(*msgs, **kwargs):
 		LOG.__instance.logger.e(*msgs, **kwargs)
 
+class DevnullLogger(Logger):
+	def d(self, *msgs, **kwargs):
+		pass
+
+	def i(self, *msgs, **kwargs):
+		pass
+
+	def e(self, *msgs, **kwargs):
+		pass
+
+	def __repr__(self):
+		return 'DevnullLogger'
+
 class FileLogger(Logger):
 	def __init__(self, filepath, debug=True):
 		self.debug = debug
@@ -90,7 +103,7 @@ class FileLogger(Logger):
 		self.file.flush()
 
 	def __repr__(self):
-		return 'FileLogger'
+		return f'FileLogger[\'{self.file.name}\']'
 
 class MultiLogger(Logger):
 	def __init__(self, *loggers):
@@ -151,4 +164,4 @@ class OffsetLogger(Logger):
 		self.log.e(self.offset, *msgs, **kwargs)
 
 	def __repr__(self):
-		return f'OffsetLogger[{repr(self.log)}]'
+		return f'OffsetLogger[\'{self.offset}\'+{repr(self.log)}]'

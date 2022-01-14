@@ -1,11 +1,24 @@
 class LossTracker:
 	def __init__(self, lower_bound=None, cvg_slope=None, patience=None):
+		'''
+			Parameters
+			----------
+			lower_bound: float, optional
+				Lower loss bound, used for detection of target loss. Not used if `None`. Default: `None`
+			cvg_slope: float, optional
+				Relative loss slope (absolute change divided by newer value), used for detection of convergence. Not used if `None`. Default: `None`
+			patience: int, optional
+				Number of iterations that forgive detections, used for ignoring noise in the loss curve. Not used if `None`. Default: `None`
+		'''
 		self.bound = lower_bound
 		self.slope = cvg_slope
 		self.patience = patience
 		self.reset()
 
 	def reset(self):
+		'''
+			Resets all internal states. Equivalent of creating a new object.
+		'''
 		self.__epoch = 0
 		self._losses = []
 		self._slope_iter = 0
@@ -19,7 +32,11 @@ class LossTracker:
 		'''
 		self.__epoch += loss.item()
 
-	def step(self, dataset_size):
+	def step_single(self, loss):
+		self.append(loss)
+		self.step_epoch(1)
+
+	def step_epoch(self, dataset_size):
 		'''
 			Averages the accumulated loss with given dataset size and evaluates the relative slope. Used in the epoch loop, after iterating minibatches.
 		'''

@@ -53,7 +53,7 @@ class GifMaker:
 			pilimg = Image.fromarray(orient_img(img, out=True))
 			pilimg.save(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)))
 		elif isinstance(img, str) and img == 'pyplot':
-			plt.savefig(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)), bbox_inches='tight', pad_inches=0, transparent=True)
+			plt.savefig(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)), bbox_inches='tight', pad_inches=0, transparent=False)
 		else:
 			raise RuntimeError('Unknown image type for GIF! ({})'.format(type(img)))
 
@@ -68,7 +68,7 @@ class GifMaker:
 			LOG.e(f'No images found to generate {self.name}.gif!')
 			return
 		img, *imgs = l
-		if isinstance(duration_sec, int):  # Calculate global per-frame duration.
+		if isinstance(duration_sec, int) or isinstance(duration_sec, float):  # Calculate global per-frame duration.
 			duration = int(duration_sec*1000/(self.index-1))
 		else:  # Convert per-frame to millicsconds.
 			duration = [int(d*1000) for d in duration_sec]
@@ -206,6 +206,8 @@ class Experiment:
 		'''
 			Save given image to given filepath. Filepath gets appended to experiment path.
 		'''
+		if len(img.shape) == 2:
+			img = img.reshape(*img.shape,1)
 		img = transforms.ToPILImage()(orient_img(img, out=True))
 		img.save(self.path(filepath), optimize=False, compress_level=0)
 

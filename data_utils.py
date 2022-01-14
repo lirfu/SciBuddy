@@ -16,7 +16,7 @@ def orient_img(img, out):
 		Otherwise, input is permuted as channel last and vertically flipped.
 	'''
 	if out:
-		return img.flip((0)).permute(2,0,1).cpu()
+		return img.flip((0)).permute(2,0,1)
 	else:
 		return img.permute(1,2,0).flip((0))
 
@@ -33,13 +33,33 @@ class ImageCat:
 		self.image = torch.cat([self.image, vector], dim=1)
 
 def load_image(filepath, shape=None, convert=None, orient=True):
+	'''
+		Loads image into a torch.Tensor.
+
+		Parameters
+		----------
+		filepath: str
+			Path to the source image.
+
+		shape: Tuple(2), optional
+			Target HW shape of the image after loading. If `None`, original size is kept. Default: None
+
+		convert: str, optional
+			Target Pillow format to which loaded image is converted.
+			Common values: `L` for 8-bit grayscale, `RGB` for 8-bit color, `I` for 32-bit integers, 
+			`F` for 32-bit floats. Check Pillow documentation on `Modes` for more options. If `None`, 
+			original (Pillow automatic) format is kept. Default: None
+
+		orient: bool, optional
+			Flips image vertically to match the right coordinate system and reshapes the image tensor to CHW order.
+	'''
 	if not os.path.exists(filepath):
 		raise RuntimeError('Image file not found:', filepath)
 	img = Image.open(filepath)
 
-	if convert:
+	if convert is not None:
 		img = img.convert(convert)
-	if shape:
+	if shape is not None:
 		img = transforms.Resize(shape[:2])(img)
 	if orient:
 		return orient_img(transforms.ToTensor()(img), out=False)

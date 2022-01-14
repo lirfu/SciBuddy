@@ -5,6 +5,8 @@ import torch
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+
+
 class PlotContext:
 	def __init__(self, ex=None, filename=None, show=False, clear=True, **kwargs):
 		'''
@@ -12,13 +14,13 @@ class PlotContext:
 
 			Parameters
 			----------
-			ex : Experiment
+			ex : Experiment, optional
 				Experiment used to save the image upon exit. Skipped if None. Default: None.
-			filename : str
+			filename : str, optional
 				File path and extension type relative to the given experiment path upon exit. Skipped if None. Default: None.
-			show : bool
+			show : bool, optional
 				Show the pyplot plot upon exit. Default: False.
-			clear : bool
+			clear : bool, optional
 				Clears the figure and closes plot upon exit. Default: True.
 		'''
 		self.ex = ex
@@ -27,7 +29,14 @@ class PlotContext:
 		self.clear = clear
 		self.kwargs = kwargs
 
+	@staticmethod
+	def clear():
+		plt.cla()
+		plt.clf()
+		plt.close()
+
 	def __enter__(self):
+		PlotContext.clear()
 		plt.figure(clear=True, **self.kwargs)
 
 	def __exit__(self, type, value, trace):
@@ -38,8 +47,7 @@ class PlotContext:
 		if self.show:
 			plt.show()
 		if self.clear:
-			plt.clf()
-			plt.close()
+			PlotContext.clear()
 
 def plot_loss_curve(losses, xlabel='Iterations', ylabel='Loss'):
 	'''
@@ -128,3 +136,35 @@ def fit_grid_shape(length, prefer_width=True):
 		if math.modf(dsq)[0] >= 0.5:
 			shape = (shape[0]+1, shape[1])
 	return shape
+
+def show_images(*imgs, names=None, margins=0.01, quiet=False, **kwargs):
+	with PlotContext(show=True):
+		draw_images(*imgs, names=names, margins=margins, quiet=quiet, **kwargs)
+
+def draw_images(*imgs, names=None, margins=0.01, quiet=True, **kwargs):
+	if isinstance(names, str):
+		names = [names]
+	N = len(imgs)
+	Nr = math.sqrt(N)
+	aspect = 16 / 9
+	W = round(Nr * aspect)
+	H = math.ceil(N / W)
+	for i,img in enumerate(imgs):
+		if not quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
+			if names is None:
+				print(f'Image {i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+			else:
+				print(f'{names[i]} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+		plt.subplot(H,W,i+1)
+		if names is not None:
+			plt.title(names[i])
+		im = plt.imshow(img, origin='lower', **kwargs)
+		plt.colorbar(im)
+	plt.gcf().subplots_adjust(
+		top=1-margins,
+		bottom=margins,
+		left=margins,
+		right=1-margins,
+		hspace=margins,
+		wspace=margins
+	)
