@@ -17,7 +17,7 @@ class PlotContext:
 			ex : Experiment, optional
 				Experiment used to save the image upon exit. Skipped if None. Default: None.
 			filename : str, optional
-				File path and extension type relative to the given experiment path upon exit. Skipped if None. Default: None.
+				File path and extension. If `ex` is defined, use it to prepend experiment path. Skipped if None. Default: None.
 			show : bool, optional
 				Show the pyplot plot upon exit. Default: False.
 			clear : bool, optional
@@ -40,10 +40,11 @@ class PlotContext:
 		plt.figure(clear=True, **self.kwargs)
 
 	def __exit__(self, type, value, trace):
-		if self.ex is not None and self.filename is not None:
-			self.ex.save_pyplot_image(self.filename)
-		elif self.filename is not None:
-			plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False)
+		if self.filename is not None:
+			if self.ex is not None:
+				self.ex.save_pyplot_image(self.filename)
+			else:
+				plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False)
 		if self.show:
 			plt.show()
 		if self.clear:
