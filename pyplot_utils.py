@@ -44,7 +44,7 @@ class PlotContext:
 			if self.ex is not None:
 				self.ex.save_pyplot_image(self.filename)
 			else:
-				plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False)
+				plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False, dpi=self.kwargs.get('dpi', None))
 		if self.show:
 			plt.show()
 		if self.clear:
@@ -138,16 +138,28 @@ def fit_grid_shape(length, prefer_width=True):
 			shape = (shape[0]+1, shape[1])
 	return shape
 
-def show_images(*imgs, names=None, margins=0.01, quiet=False, **kwargs):
-	with PlotContext(show=True):
-		draw_images(*imgs, names=names, margins=margins, quiet=quiet, **kwargs)
+def mask_image(img, mask, color=[0,1,0], alpha=0.5):
+	if isinstance(mask, np.ndarray):
+		color = np.array(color)
+		mmm = img.copy()
+	elif isinstance(mask, torch.Tensor):
+		color = torch.FloatTensor(color)
+		mmm = img.detach().clone()
+		mask = mask.squeeze()
+	else:
+		RuntimeError('Unknown mask type:', type(mask))
+	mmm[mask] = color
+	return (1-alpha) * img + alpha * mmm
 
-def draw_images(*imgs, names=None, margins=0.01, quiet=True, **kwargs):
+def show_images(*imgs, names=None, **kwargs):
+	with PlotContext(show=True):
+		draw_images(*imgs, names=names, **kwargs)
+
+def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, **kwargs):
 	if isinstance(names, str):
 		names = [names]
 	N = len(imgs)
 	Nr = math.sqrt(N)
-	aspect = 16 / 9
 	W = round(Nr * aspect)
 	H = math.ceil(N / W)
 	for i,img in enumerate(imgs):
@@ -159,8 +171,11 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, **kwargs):
 		plt.subplot(H,W,i+1)
 		if names is not None:
 			plt.title(names[i])
-		im = plt.imshow(img, origin='lower', **kwargs)
-		plt.colorbar(im)
+		im = plt.imshow(img, **kwargs)
+		plt.gca().axes.xaxis.set_visible(ticks)
+		plt.gca().axes.yaxis.set_visible(ticks)
+		if colorbar:
+			plt.colorbar(im)
 	plt.gcf().subplots_adjust(
 		top=1-margins,
 		bottom=margins,
