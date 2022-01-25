@@ -171,7 +171,7 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 		plt.subplot(H,W,i+1)
 		if names is not None:
 			plt.title(names[i])
-		im = plt.imshow(img, **kwargs)
+		im = plt.imshow(img, cmap=kwargs.get('cmap', 'gray'), **kwargs)
 		plt.gca().axes.xaxis.set_visible(ticks)
 		plt.gca().axes.yaxis.set_visible(ticks)
 		if colorbar:

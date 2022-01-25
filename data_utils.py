@@ -9,30 +9,30 @@ from torchvision import transforms
 import trimesh
 
 
-def orient_img(img, out):
-	'''
-		Flips the vertical orientation and dimension order of an image.
-		If out is True, input is flipped and permuted as channel first.
-		Otherwise, input is permuted as channel last and vertically flipped.
-	'''
-	if out:
-		return img.flip((0)).permute(2,0,1)
+def chw_to_hwc(img):
+	if len(img.shape) < 3:
+		return img.unsqueeze(2)
+	return img.moveaxis(0,2)
+
+def hwc_to_chw(img):
+	if len(img.shape) < 3:
+		return img.unsqueeze(0)
+	return img.moveaxis(2,0)
+
+def rb_to_rgb(img):
+	return torch.stack([img[...,0,:,:], torch.zeros(img.shape[-2:]), img[...,1,:,:]], dim=0)
+
+def orient_img(img, to_chw=False, flip=False):
+	if to_chw:
+		if flip:
+			img = img.flip((0))
+		return img.permute(2,0,1)
 	else:
-		return img.permute(1,2,0).flip((0))
+		if flip:
+			img = img.flip((1))
+		return img.permute(1,2,0)
 
-
-class ImageCat:
-	def __init__(self):
-		self.image = None
-
-	def __call__(self, vector):
-		vector = vector.detach().cpu().view(-1,1)
-		if self.image is None:
-			self.image = vector
-			return
-		self.image = torch.cat([self.image, vector], dim=1)
-
-def load_image(filepath, shape=None, convert=None, orient=True):
+def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False):
 	'''
 		Loads image into a torch.Tensor.
 
@@ -50,8 +50,11 @@ def load_image(filepath, shape=None, convert=None, orient=True):
 			`F` for 32-bit floats. Check Pillow documentation on `Modes` for more options. If `None`, 
 			original (Pillow automatic) format is kept. Default: None
 
-		orient: bool, optional
-			Flips image vertically to match the right coordinate system and reshapes the image tensor to CHW order.
+		flip: bool, optional
+			Flips image vertically to match the right coordinate system. Default: False
+
+		as_hwc: bool, optional
+			Swaps the channels dimension to the end. Default: False
 	'''
 	if not os.path.exists(filepath):
 		raise RuntimeError('Image file not found:', filepath)
@@ -59,17 +62,31 @@ def load_image(filepath, shape=None, convert=None, orient=True):
 
 	if convert is not None:
 		img = img.convert(convert)
+	img = transforms.ToTensor()(img)  # CHW, [0,1]
 	if shape is not None:
 		img = transforms.Resize(shape[:2])(img)
-	if orient:
-		return orient_img(transforms.ToTensor()(img), out=False)
-	else:
-		return torch.tensor(transforms.ToTensor()(img))
+	if flip:
+		img = img.flip((1))
+	if as_hwc:
+		return chw_to_hwc(img)
+	return img
 
-def save_image(filepath, img):
-	img = transforms.ToPILImage()(orient_img(img, out=True))
-	img.save(filepath, optimize=False, compress_level=0)
+def save_image(filepath, img, **kwargs):
+	img = transforms.ToPILImage()(img)
+	img.save(filepath, optimize=kwargs.get('optimize', False), compress_level=kwargs.get('compress_level', 0))
 
+class ImageCat:
+	"""
+		Utility for concatenating images along a dimension.
+	"""
+	def __init__(self):
+		self._images = []
+
+	def __call__(self, img):
+		self._images.append(img.detach().cpu())
+
+	def generate(self, dim=2):
+		return torch.cat(self._images, dim=dim)
 
 ### DATA LOADING ###
 
@@ -136,7 +153,7 @@ def images_loader(model_dir, filename='image_rgba.*', force_shape=None, extensio
 	sorted(files)  # Sort by name to ensure consistency.
 	images = []
 	for f in files:
-		images.append( load_image(f, force_shape) )
+		images.append( load_image(f, shape=force_shape) )
 
 	return images
 

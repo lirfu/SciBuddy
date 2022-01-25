@@ -2,19 +2,7 @@ import math
 import torch
 import torchvision
 
-
-def chw_to_hwc(img):
-	if len(img.shape) < 3:
-		return img
-	return img.moveaxis(0,2)
-
-def hwc_to_chw(img):
-	if len(img.shape) < 3:
-		return img
-	return img.moveaxis(2,0)
-
-def rb_to_rgb(img):
-	return torch.stack([img[...,0,:,:], torch.zeros(img.shape[-2:]), img[...,1,:,:]], dim=0)
+from .data_utils import rb_to_rgb, chw_to_hwc
 
 class ConvolutionKernel(torch.nn.Module):
 	"""

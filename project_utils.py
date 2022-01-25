@@ -11,7 +11,6 @@ from PIL import Image
 import torch
 from torchvision import transforms
 
-from .data_utils import orient_img
 from .logging_utils import LOG
 
 class CheckpointSaver:
@@ -47,10 +46,10 @@ class GifMaker:
 
 	def __call__(self, img):
 		if isinstance(img, torch.Tensor):
-			pilimg = transforms.ToPILImage()(orient_img(img.detach().cpu(), out=True))
+			pilimg = transforms.ToPILImage()(img.detach().cpu())
 			pilimg.save(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)))
 		elif isinstance(img, np.ndarray):
-			pilimg = Image.fromarray(orient_img(img, out=True))
+			pilimg = Image.fromarray(img)
 			pilimg.save(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)))
 		elif isinstance(img, str) and img == 'pyplot':
 			plt.savefig(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)), bbox_inches='tight', pad_inches=0, transparent=False)
@@ -139,6 +138,9 @@ class Experiment:
 	def __contains__(self, k):
 		return k in self.config
 
+	def __call__(self, *args):
+		return self.path(*args)
+
 	def __str__(self):
 		'''
 			Basename of the experiment directory path.
@@ -201,18 +203,3 @@ class Experiment:
 			Join given path elements to the experiment directory path.
 		'''
 		return os.path.join(self.dir, *args)
-
-	def save_image(self, img: torch.Tensor, filepath: str):
-		'''
-			Save given image to given filepath. Filepath gets appended to experiment path.
-		'''
-		if len(img.shape) == 2:
-			img = img.reshape(*img.shape,1)
-		img = transforms.ToPILImage()(orient_img(img, out=True))
-		img.save(self.path(filepath), optimize=False, compress_level=0)
-
-	def save_pyplot_image(self, name, transparent=False, **kwargs):
-		'''
-			Save pyplot buffer image to given filepath. Filepath gets appended to experiment path.
-		'''
-		plt.savefig(self.path(name), bbox_inches='tight', pad_inches=0, transparent=transparent, **kwargs)
