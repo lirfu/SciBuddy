@@ -104,7 +104,7 @@ def make_2d_grid(m, M, shape):
 			Maximum value/s for linspace.
 		shape :	Tuple(int,int)
 			Shape of grid following the row-major order (H,W).
-		
+
 		Returns
 		----------
 		torch.FloatTensor(H,W,2)
@@ -140,16 +140,14 @@ def fit_grid_shape(length, prefer_width=True):
 
 def mask_image(img, mask, color=[0,1,0], alpha=0.5):
 	if isinstance(mask, np.ndarray):
-		color = np.array(color)
-		mmm = img.copy()
-	elif isinstance(mask, torch.Tensor):
-		color = torch.FloatTensor(color)
-		mmm = img.detach().clone()
-		mask = mask.squeeze()
+		mask = mask.squeeze()[..., None] * alpha
+		color = np.array(color).reshape(1,1,3)
+	if isinstance(mask, torch.Tensor):
+		mask = mask.squeeze().unsqueeze(2) * alpha
+		color = torch.tensor(color).reshape(1,1,3)
 	else:
 		RuntimeError('Unknown mask type:', type(mask))
-	mmm[mask] = color
-	return (1-alpha) * img + alpha * mmm
+	return (1-mask) * img + mask * color
 
 def show_images(*imgs, names=None, **kwargs):
 	with PlotContext(show=True):
@@ -160,8 +158,8 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 		names = [names]
 	N = len(imgs)
 	Nr = math.sqrt(N)
-	W = round(Nr * aspect)
-	H = math.ceil(N / W)
+	W = max(round(Nr * aspect), 1)
+	H = max(math.ceil(N / W), 1)
 	for i,img in enumerate(imgs):
 		if not quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
 			if names is None:

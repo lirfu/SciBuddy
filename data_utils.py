@@ -1,6 +1,7 @@
 import glob
 import os
 import json
+from typing import Union
 
 from PIL import Image
 import numpy as np
@@ -9,18 +10,42 @@ from torchvision import transforms
 import trimesh
 
 
-def chw_to_hwc(img):
-	if len(img.shape) < 3:
+def chw_to_hwc(img: torch.Tensor):
+	l = len(img.shape)
+	if l == 2:
 		return img.unsqueeze(2)
-	return img.moveaxis(0,2)
+	elif l == 3:
+		return img.moveaxis(0,2)
+	elif l == 4:
+		return img.moveaxis(1,2)
+	else:
+		raise RuntimeError('Unrecognized image shape: ' + l)
 
-def hwc_to_chw(img):
-	if len(img.shape) < 3:
+
+def hwc_to_chw(img: torch.Tensor):
+	l = len(img.shape)
+	if l == 2:
 		return img.unsqueeze(0)
-	return img.moveaxis(2,0)
+	elif l == 3:
+		return img.moveaxis(2,0)
+	elif l == 4:
+		return img.moveaxis(3,1)
+	else:
+		raise RuntimeError('Unrecognized image shape: ' + l)
 
 def rb_to_rgb(img):
 	return torch.stack([img[...,0,:,:], torch.zeros(img.shape[-2:]), img[...,1,:,:]], dim=0)
+
+def gray_to_rgb(img):
+	l = len(img.shape)
+	if l == 2:
+		return img.unsqueeze(0).expand(3,-1,-1)
+	elif l == 3:
+		return img.expand(3,-1,-1)
+	elif l == 4:
+		return img.expand(-1,3,-1,-1)
+	else:
+		raise RuntimeError('Unrecognized image shape: ' + l)
 
 def orient_img(img, to_chw=False, flip=False):
 	if to_chw:
@@ -32,7 +57,7 @@ def orient_img(img, to_chw=False, flip=False):
 			img = img.flip((1))
 		return img.permute(1,2,0)
 
-def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False):
+def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, numpy=False):
 	'''
 		Loads image into a torch.Tensor.
 
@@ -59,20 +84,35 @@ def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False):
 	if not os.path.exists(filepath):
 		raise RuntimeError('Image file not found:', filepath)
 	img = Image.open(filepath)
-
 	if convert is not None:
 		img = img.convert(convert)
-	img = transforms.ToTensor()(img)  # CHW, [0,1]
 	if shape is not None:
-		img = transforms.Resize(shape[:2])(img)
-	if flip:
-		img = img.flip((1))
-	if as_hwc:
-		return chw_to_hwc(img)
+		img = img.resize(shape[::-1])
+	if numpy:
+		img = np.array(img)  # HWC
+		if flip:
+			img = np.flip(img, 0)
+		if not as_hwc and len(img) == 3:
+			img = np.moveaxis(img, 2, 0)
+		return img
+	else:
+		img = transforms.ToTensor()(img)  # CHW, [0,1]
+		if flip:
+			img = img.flip((1))
+		if as_hwc:
+			return chw_to_hwc(img)
 	return img
 
 def save_image(filepath, img, **kwargs):
-	img = transforms.ToPILImage()(img)
+	directory = os.path.dirname(filepath)
+	if directory != '':
+		os.makedirs(directory, exist_ok=True)
+	if isinstance(img, np.ndarray):
+		img = Image.fromarray(img)
+	elif isinstance(img, torch.Tensor):
+		img = transforms.ToPILImage()(img)
+	else:
+		raise RuntimeError('Unknown image type', type(img))
 	img.save(filepath, optimize=kwargs.get('optimize', False), compress_level=kwargs.get('compress_level', 0))
 
 class ImageCat:
