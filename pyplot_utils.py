@@ -50,11 +50,11 @@ class PlotContext:
 		if self.clear:
 			PlotContext.clear()
 
-def plot_loss_curve(losses, xlabel='Iterations', ylabel='Loss'):
+def plot_loss_curve(losses, label=None, xlabel='Iterations', ylabel='Loss'):
 	'''
 		Plot the loss curve from an array of losses. Shows the grid.
 	'''
-	plt.plot(losses)
+	plt.plot(losses, label=label)
 	plt.xlabel(xlabel)
 	plt.ylabel(ylabel)
 	plt.grid(True)

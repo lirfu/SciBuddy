@@ -112,7 +112,7 @@ class Experiment:
 		if group is None:
 			group = self.config['experiment'].get('group', False)
 		if version is None:
-			version = self.config['experiment'].get('version', '')
+			version = self.config['experiment'].get('version', None)
 		if timestamp is None:
 			timestamp = self.config['experiment'].get('timestamp', True)
 
