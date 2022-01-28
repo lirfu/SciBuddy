@@ -50,16 +50,19 @@ class PlotContext:
 		if self.clear:
 			PlotContext.clear()
 
-def plot_loss_curve(losses, label=None, xlabel='Iterations', ylabel='Loss'):
+def draw_loss_curve(losses, label=None, xlabel='Iterations', ylabel='Loss'):
 	'''
 		Plot the loss curve from an array of losses. Shows the grid.
 	'''
-	plt.plot(losses, label=label)
+	if len(losses[0]) == 1:
+		plt.plot(losses, label=label)
+	else:
+		plt.plot([l[0] for l in losses], [l[1] for l in losses], label=label)
 	plt.xlabel(xlabel)
 	plt.ylabel(ylabel)
 	plt.grid(True)
 
-def plot_class_distribution(features, labels, colormap='hsv', marker='.', sizes=20, legend=True):
+def draw_class_distribution(features, labels, colormap='hsv', marker='.', sizes=20, legend=True):
 	'''
 		Scatters the 2D points with assigned labels and adds a label legend.
 	'''
@@ -72,7 +75,7 @@ def plot_class_distribution(features, labels, colormap='hsv', marker='.', sizes=
 		legend = plt.legend(*scatter.legend_elements(), title='Labels')
 		plt.gca().add_artist(legend)
 
-def plot_images_grid(images, grid, labels=None, labels_prefix='', fontsize=10):
+def draw_images_grid(images, grid, labels=None, labels_prefix='', fontsize=10):
 	'''
 		Draws given 1D list of images into a grid, filling row-by-row (pyplot style).
 	'''
@@ -84,7 +87,7 @@ def plot_images_grid(images, grid, labels=None, labels_prefix='', fontsize=10):
 		if labels is not None:
   			ax.set_title(labels_prefix + str(labels[i-1]), fontsize=fontsize)
 
-def plot_ranges(x, y, y_m, y_M, linecolor='black', rangestyle=':', rangecolor='blue', rangealpha=0.25):
+def draw_ranges(x, y, y_m, y_M, linecolor='black', rangestyle=':', rangecolor='blue', rangealpha=0.25):
 	ax = plt.gca()
 	ax.plot(x, y, color=linecolor)
 	ax.plot(x, y_m, color=linecolor, linestyle=rangestyle)
@@ -182,3 +185,20 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 		hspace=margins,
 		wspace=margins
 	)
+
+def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01):
+	C = 1
+	if len(p.shape) >= 1:
+		C = p.shape[1]
+	if class_names is None:
+		class_names = [f'Class {c+1}' for c in range(C)]
+	for c, name in enumerate(class_names):
+		plt.step(r[:,c], p[:,c], where='post', marker='o', markersize=2, label=name)
+		plt.xlabel('Recall')
+		plt.ylabel('Precision')
+	plt.legend()
+	plt.grid(grid)
+	plt.xlim(-padding,1+padding)
+	plt.ylim(-padding,1+padding)
+	if title is not None:
+		plt.title(title)

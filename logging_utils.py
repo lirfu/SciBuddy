@@ -47,8 +47,8 @@ class LOG:
 		LOG.logger = logger
 
 	@staticmethod
-	def init(logger=StdoutLogger()):
-		if LOG.__instance is None:
+	def init(logger=StdoutLogger(), force=True):
+		if force or LOG.__instance is None:
 			LOG.__instance = LOG(logger)
 		return LOG.__instance
 
