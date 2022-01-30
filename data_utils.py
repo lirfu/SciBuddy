@@ -1,7 +1,6 @@
 import glob
 import os
 import json
-from typing import Union
 
 from PIL import Image
 import numpy as np
@@ -126,6 +125,8 @@ class ImageCat:
 		self._images.append(img.detach().cpu())
 
 	def generate(self, dim=2):
+		if len(self._images) == 0:
+			return torch.tensor([[0]])
 		return torch.cat(self._images, dim=dim)
 
 ### DATA LOADING ###
