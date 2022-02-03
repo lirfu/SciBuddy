@@ -63,7 +63,7 @@ class MultistageConvolutionKernel(torch.nn.Module):
 	"""
 		Kernel convolution module for multi-stage convolutions (e.g. vertical kernel following horizontal kernel). If given kernel is not instance of `ConvolutionKernel`, constructs one with given kernel array.
 	"""
-	def __init__(self, kernels):
+	def __init__(self, kernels, inter_process=None):
 		super(MultistageConvolutionKernel, self).__init__()
 		if not isinstance(kernels, list):
 			kernels = [kernels]
@@ -73,10 +73,20 @@ class MultistageConvolutionKernel(torch.nn.Module):
 				layers.append(k)
 			else:
 				layers.append(ConvolutionKernel(k))
-		self.kernels = torch.nn.Sequential(*layers)
+		self.kernels = layers
+		self.inter_process = inter_process
 
 	def forward(self, img):
-		return self.kernels(img)
+		res = None
+		for k in self.kernels:
+			inter = k(img)
+			if self.inter_process is not None:
+				inter = self.inter_process(inter)
+			if res is None:
+				res = inter
+			else:
+				res += inter
+		return res
 
 class GradientKernel(torch.nn.Module):
 	"""
@@ -125,16 +135,16 @@ class SobelKernel(MultistageConvolutionKernel):
 				[-1, 0, 1],
 				[-2, 0, 2],
 				[-1, 0, 1]
-			]),
+			]) / 4,
 			torch.FloatTensor([
 				[-1, -2, -1],
 				[ 0,  0,  0],
 				[ 1,  2,  1]
-			])
-		])
+			]) / 4
+		], inter_process=lambda x: x.pow(2))
 
 	def forward(self, img):
-		return super().forward(img) / 9
+		return super().forward(img).sqrt()
 
 class SobelGradientKernel(GradientKernel):
 	"""
@@ -163,15 +173,15 @@ class RobertsKernel(MultistageConvolutionKernel):
 			torch.FloatTensor([
 				[1,  0],
 				[0, -1]
-			]),
+			]) / 2,
 			torch.FloatTensor([
 				[0, 1],
 				[-1, 0]
-			])
-		])
+			]) / 2
+		], inter_process=lambda x: x**2)
 	
 	def forward(self, img):
-		return super().forward(img) / 2
+		return super().forward(img).sqrt()
 
 class RobertsGradientKernel(GradientKernel):
 	"""
@@ -367,41 +377,41 @@ if __name__ == '__main__':
 
 		'SobelGradient': SobelGradientKernel(length=False),
 		'SobelGradient1': SobelGradientKernel(length=True),
-		'Monster': torch.nn.Sequential(SobelGradientKernel(length=False), BoxKernel(2))
-		# 'RobertsGradient': RobertsGradientKernel(length=False),
+		'Monster': torch.nn.Sequential(SobelGradientKernel(length=False), BoxKernel(2)),
+		'RobertsGradient': RobertsGradientKernel(length=False),
 
-		# 'Sobel': SobelKernel(),
-		# 'Roberts': RobertsKernel(),
-		# 'Box': BoxKernel(3),
-		# 'Erosion': ErosionKernel(3),
-		# 'Dilation': DilationKernel(3),
-		# 'Gaussian': GaussianKernel(3, 1),
+		'Sobel': SobelKernel(),
+		'Roberts': RobertsKernel(),
+		'Box': BoxKernel(3),
+		'Erosion': ErosionKernel(3),
+		'Dilation': DilationKernel(3),
+		'Gaussian': GaussianKernel(3, 1),
 
-		# 'Vertical edges': VerticalEdgeKernel(size),
-		# 'Rotation -15': RotateKernel(VerticalEdgeKernel(size), -math.pi / 12),
-		# 'Rotation -30': RotateKernel(VerticalEdgeKernel(size), -math.pi / 6),
-		# 'Rotation -45': RotateKernel(VerticalEdgeKernel(size), -math.pi / 4),
-		# 'Rotation -60': RotateKernel(VerticalEdgeKernel(size), -math.pi / 3),
-		# 'Rotation -75': RotateKernel(VerticalEdgeKernel(size), -math.pi * 5 / 12),
-		# 'Rotation -90': RotateKernel(VerticalEdgeKernel(size), -math.pi / 2),
-		# 'Horizontal edges': HorizontalEdgeKernel(size)
+		'Vertical edges': VerticalEdgeKernel(),
+		'Rotation -15': rotated_kernel(VerticalEdgeKernel(), -math.pi / 12),
+		'Rotation -30': rotated_kernel(VerticalEdgeKernel(), -math.pi / 6),
+		'Rotation -45': rotated_kernel(VerticalEdgeKernel(), -math.pi / 4),
+		'Rotation -60': rotated_kernel(VerticalEdgeKernel(), -math.pi / 3),
+		'Rotation -75': rotated_kernel(VerticalEdgeKernel(), -math.pi * 5 / 12),
+		'Rotation -90': rotated_kernel(VerticalEdgeKernel(), -math.pi / 2),
+		'Horizontal edges': HorizontalEdgeKernel(),
 
-		# 'Vertical dilation 1': VerticalDilation(1),
-		# 'Vertical dilation 2': VerticalDilation(2),
-		# 'Vertical dilation 3': VerticalDilation(3),
-		# 'Vertical dilation 4': VerticalDilation(4),
-		# 'Vertical dilation 5': VerticalDilation(5),
-		# 'Vertical dilation 6': VerticalDilation(6),
-		# 'Vertical dilation 7': VerticalDilation(7),
+		'Vertical dilation 1': VerticalDilation(1),
+		'Vertical dilation 2': VerticalDilation(2),
+		'Vertical dilation 3': VerticalDilation(3),
+		'Vertical dilation 4': VerticalDilation(4),
+		'Vertical dilation 5': VerticalDilation(5),
+		'Vertical dilation 6': VerticalDilation(6),
+		'Vertical dilation 7': VerticalDilation(7),
 
-		# 'Vertical dilation': VerticalDilation(size),
-		# 'Rotation -15': rotated_kernel(VerticalDilation(size), -math.pi / 12, True),
-		# 'Rotation -30': rotated_kernel(VerticalDilation(size), -math.pi / 6, True),
-		# 'Rotation -45': rotated_kernel(VerticalDilation(size), -math.pi / 4, True),
-		# 'Rotation -60': rotated_kernel(VerticalDilation(size), -math.pi / 3, True),
-		# 'Rotation -75': rotated_kernel(VerticalDilation(size), -math.pi * 5 / 12, True),
-		# 'Rotation -90': rotated_kernel(VerticalDilation(size), -math.pi / 2, True),
-		# 'Horizontal dilation': HorizontalDilation(size)
+		'Vertical dilation': VerticalDilation(size),
+		'Rotation -15': rotated_kernel(VerticalDilation(size), -math.pi / 12, True),
+		'Rotation -30': rotated_kernel(VerticalDilation(size), -math.pi / 6, True),
+		'Rotation -45': rotated_kernel(VerticalDilation(size), -math.pi / 4, True),
+		'Rotation -60': rotated_kernel(VerticalDilation(size), -math.pi / 3, True),
+		'Rotation -75': rotated_kernel(VerticalDilation(size), -math.pi * 5 / 12, True),
+		'Rotation -90': rotated_kernel(VerticalDilation(size), -math.pi / 2, True),
+		'Horizontal dilation': HorizontalDilation(size)
 
 		# 'Test1': ConvolutionKernel(torch.tensor([
 		# 	[1,1],
@@ -432,7 +442,7 @@ if __name__ == '__main__':
 			r = (r - r.min()) / (r.max() - r.min())  # Normalize to [0,1].
 			r = rb_to_rgb(r)
 		images.append(chw_to_hwc(r).numpy())
-	show_images(*images, names=list(kernels.keys()))
+	show_images(*images, names=list(kernels.keys()), quiet=False)
 
 	# # Live camera demo.
 	# from camera_utils import *
