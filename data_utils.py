@@ -18,7 +18,7 @@ def chw_to_hwc(img: torch.Tensor):
 	elif l == 4:
 		return img.moveaxis(1,2)
 	else:
-		raise RuntimeError('Unrecognized image shape: ' + l)
+		raise RuntimeError('Unrecognized image shape: ' + str(l))
 
 
 def hwc_to_chw(img: torch.Tensor):
@@ -30,7 +30,7 @@ def hwc_to_chw(img: torch.Tensor):
 	elif l == 4:
 		return img.moveaxis(3,1)
 	else:
-		raise RuntimeError('Unrecognized image shape: ' + l)
+		raise RuntimeError('Unrecognized image shape: ' + str(l))
 
 def rb_to_rgb(img):
 	return torch.stack([img[...,0,:,:], torch.zeros(img.shape[-2:]), img[...,1,:,:]], dim=0)
@@ -44,7 +44,7 @@ def gray_to_rgb(img):
 	elif l == 4:
 		return img.expand(-1,3,-1,-1)
 	else:
-		raise RuntimeError('Unrecognized image shape: ' + l)
+		raise RuntimeError('Unrecognized image shape: ' + str(l))
 
 def orient_img(img, to_chw=False, flip=False):
 	if to_chw:
