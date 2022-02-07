@@ -156,13 +156,15 @@ def show_images(*imgs, names=None, **kwargs):
 	with PlotContext(show=True):
 		draw_images(*imgs, names=names, **kwargs)
 
-def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, **kwargs):
+def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, **kwargs):
 	if isinstance(names, str):
 		names = [names]
 	N = len(imgs)
 	Nr = math.sqrt(N)
 	W = max(round(Nr * aspect), 1)
 	H = max(math.ceil(N / W), 1)
+	if N < W:
+		W = N
 	for i,img in enumerate(imgs):
 		if not quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
 			if names is None:
@@ -185,6 +187,8 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 		hspace=margins,
 		wspace=margins
 	)
+	if title is not None:
+		plt.suptitle(title)
 
 def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01):
 	C = 1
@@ -202,3 +206,15 @@ def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, p
 	plt.ylim(-padding,1+padding)
 	if title is not None:
 		plt.title(title)
+
+def maximize_window():
+	plot_backend = plt.get_backend()
+	mng = plt.get_current_fig_manager()
+	if plot_backend == 'TkAgg':
+		mng.resize(*mng.window.maxsize())
+	elif plot_backend == 'wxAgg':
+		mng.frame.Maximize(True)
+	elif plot_backend == 'Qt4Agg':
+		mng.window.showMaximized()
+	else:
+		print('~> Cannot maximize window, unknown backend:', plot_backend)

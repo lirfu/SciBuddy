@@ -40,11 +40,14 @@ def gray_to_rgb(img):
 	if l == 2:
 		return img.unsqueeze(0).expand(3,-1,-1)
 	elif l == 3:
-		return img.expand(3,-1,-1)
+		if img.shape[0] == 1:
+			return img.expand(3,-1,-1)
 	elif l == 4:
-		return img.expand(-1,3,-1,-1)
+		if img.shape[1] == 1:
+			return img.expand(-1,3,-1,-1)
 	else:
 		raise RuntimeError('Unrecognized image shape: ' + str(l))
+	return img
 
 def orient_img(img, to_chw=False, flip=False):
 	if to_chw:
