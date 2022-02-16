@@ -1,6 +1,9 @@
 import math
+from typing import Callable
+
 import torch
 import torchvision
+from tqdm import tqdm
 
 from .data_utils import rb_to_rgb, chw_to_hwc
 
@@ -41,8 +44,9 @@ class ConvolutionKernel(torch.nn.Module):
 		if len(img.shape) == 3:  # Add missing batch dimension.
 			img = img.unsqueeze(0)
 		if img.shape[1] != kernel.shape[1]:  # Apply same kernel across multiple channels.
-			C = img.shape[1]
-			kernel = torch.eye(C).reshape(C, C, 1, 1) * kernel
+			kernel = kernel.expand(-1,img.shape[1],-1,-1)
+		if img.shape[0] != kernel.shape[0]:  # Apply same kernel across multiple channels.
+			kernel = kernel.expand(img.shape[0],-1,-1,-1)
 		img = torch.nn.functional.pad(
 			img,
 			pad=self.padding,
@@ -271,11 +275,55 @@ class GaussianKernel(ConvolutionKernel):
 		k /= k.sum()
 		super(GaussianKernel, self).__init__(k, **kwargs)
 
+def custom_conv(img: torch.Tensor, kernel: torch.Tensor, fn: Callable, stride: int=1, batching=None):
+	"""
+		Performs convolution with custom join function.
+
+		Parameters
+		----------
+		img: torch.Tensor
+			Image to process [N,C,H,W].
+		kernel: torch.Tensor
+			Kernel to apply over image [O,C,KH,KW].
+		fn: function
+			Function for calculating result. Gets crops of input image [N,1,C,S,KH,KW] and kernel [1,O,C,1,KH,KW], outputs accumulated (over C, KH and KW) result [N,O,S].
+
+		Returns
+		----------
+		img: torch.Tensor
+			Resulting image [N,O,H-KH+1,W-KW+1].
+	"""
+	N, C, H, W = img.shape
+	O, _, KH, KW = kernel.shape
+
+	if batching is None:
+		features = img.unfold(2,KH,stride).unfold(3,KW,stride).flatten(2,3)
+		img2 = fn(features.unsqueeze(1), kernel.unsqueeze(0).unsqueeze(3))
+		return img2.reshape((N, O, H-KH+1 ,W-KW+1))
+	elif batching == 'width':
+		patches = img.unfold(3,KW,stride)
+		img2 = torch.zeros(N, O, int((H-KH)/stride+1), int((W-KW)/stride+1))
+		for i in tqdm(range(patches.shape[3]), desc='Processing custom convolution', leave=False):
+			f = patches[:,:,:,i,:]
+			features = f.unfold(2,KH,stride)
+			res = fn(features.unsqueeze(1), kernel.unsqueeze(0).unsqueeze(3))
+			img2[:, :, :, i] = res
+		return img2
+	elif batching == 'height':
+		patches = img.unfold(2,KH,stride)
+		img2 = torch.zeros(N, O, int((H-KH)/stride+1), int((W-KW)/stride+1))
+		for i in tqdm(range(patches.shape[2]), desc='Processing custom convolution', leave=False):
+			f = patches[:,:,i,:,:]
+			features = f.unfold(2,KW,stride)
+			res = fn(features.unsqueeze(1), kernel.unsqueeze(0).unsqueeze(3))
+			img2[:, :, i, :] = res
+		return img2
+	else:
+		raise RuntimeError('Unknown batching type', batching)
+	
+
 def maxconv(img, kernel, stride=1, **kwargs):
-	kernel_h, kernel_w = kernel.shape[-1], kernel.shape[-2]
-	features = img.unfold(2,kernel_h,stride).unfold(3,kernel_w,stride).flatten(2,3)
-	img2 = (features.unsqueeze(1) * kernel.unsqueeze(0).unsqueeze(3)).max(dim=-1).values.max(dim=-1).values
-	return img2.reshape((img.shape[0],kernel.shape[1],img.shape[2]-kernel_h+1,img.shape[3]-kernel_w+1))
+	return custom_conv(img, kernel, lambda features, kernel: (features*kernel).max(dim=-1).values.max(dim=-1).values, stride)
 
 class VerticalEdgeKernel(ConvolutionKernel):
 	def __init__(self, **kwargs):
