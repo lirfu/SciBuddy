@@ -212,16 +212,12 @@ class BoxKernel(ConvolutionKernel):
 	"""
 	def __init__(self, size, normalize=True, **kwargs):
 		super(BoxKernel, self).__init__(
-			torch.ones(size,size, dtype=torch.float),
+			torch.ones(size,size, dtype=torch.float) / (size**2 if normalize else 1.),
 			**kwargs
 		)
-		if normalize:
-			self.norm = size*size
-		else:
-			self.norm = 1
 
 	def forward(self, img):
-		return super().forward(img) / self.norm
+		return super().forward(img)
 
 class ErosionKernel(BoxKernel):
 	"""
@@ -320,7 +316,36 @@ def custom_conv(img: torch.Tensor, kernel: torch.Tensor, fn: Callable, stride: i
 		return img2
 	else:
 		raise RuntimeError('Unknown batching type', batching)
-	
+	# # Manual batching.
+	# img2 = torch.empty(N, O, H, W)
+	# def iterator():
+	# 	for i in range(int((H-KH)/stride+1)):
+	# 		for j in range(int((W-KW)/stride+1)):
+	# 			yield i*stride, j*stride
+	# 	yield None, None
+	# batch = torch.empty(N,C,batch_size,KH,KW)
+	# idi, idj = torch.meshgrid(torch.arange(KH), torch.arange(KW), indexing='ij')
+	# it = iterator()
+	# run = True
+	# pbar = tqdm(desc='Running batched convolution')
+	# pbar.reset(total=H*W)
+	# while run:
+	# 	indices = []
+	# 	for b in tqdm(range(batch_size), desc='Batching...', leave=False):
+	# 		i, j = next(it)
+	# 		if i is None:
+	# 			run = False
+	# 			break
+	# 		batch[...,b,:,:] = img[:, :, i+idi, i+idj]
+	# 		# batch[...,b,:,:] = img[:, :, i:i+KH, j:j+KW]
+	# 		indices.append([i,j])
+	# 	indices = torch.tensor(indices)
+	# 	feat = fn(batch.unsqueeze(1), kernel.unsqueeze(0).unsqueeze(3))
+	# 	pbar.update(len(indices))
+	# 	for b, ij in enumerate(indices):
+	# 		img2[:, :, ij[0], ij[1]] = feat[...,b]
+	# pbar.close()
+	# return img2
 
 def maxconv(img, kernel, stride=1, **kwargs):
 	return custom_conv(img, kernel, lambda features, kernel: (features*kernel).max(dim=-1).values.max(dim=-1).values, stride)
