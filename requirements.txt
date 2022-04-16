@@ -6,3 +6,4 @@ torchvision
 tqdm
 trimesh
 opencv-python
+pyyaml

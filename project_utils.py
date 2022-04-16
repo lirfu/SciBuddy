@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import math
 import json
 import glob
 import shutil
@@ -10,6 +11,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import torch
 from torchvision import transforms
+import yaml
 
 from .logging_utils import LOG
 
@@ -79,6 +81,16 @@ class GifMaker:
 		os.makedirs(self.folder)
 
 
+def load_configfile(path):
+	with open(path, 'r') as f:
+		if path.endswith('.json'):
+			return json.loads(re.sub("//.*", "", f.read(), flags=re.MULTILINE))  # Simulating comments.
+		elif path.endswith('.yaml'):
+			return yaml.load(f, yaml.FullLoader)
+		else:
+			raise RuntimeError('Unknown config file type: ' + str(path))
+
+
 class Experiment:
 	def __init__(self, configfile=None, param_index=1, group=None, version=None, timestamp=None):
 		'''
@@ -87,7 +99,7 @@ class Experiment:
 			Parameters
 			----------
 			configfile : {str, dict}
-				Filepath of the JSON config file or the actual config dictionary (for runtime configuration). If None, attempt reading filepath from program parameters. (default: None)
+				Filepath of the JSON or YAML config file or the actual parameters dictionary (for runtime configuration). If None, attempt reading filepath from program parameters. (default: None)
 			param_index : int
 				Index of the config filepath in program parameters. (default: 1)
 			group : bool, optional
@@ -104,10 +116,11 @@ class Experiment:
 			configfile = sys.argv[param_index]
 
 		if isinstance(configfile, str):
-			with open(configfile, 'r') as f:
-				self.config = json.loads(re.sub("//.*", "", f.read(), flags=re.MULTILINE))
+			self.config = load_configfile(configfile)
 		elif isinstance(configfile, dict):
 			self.config = configfile
+		else:
+			raise RuntimeError('Unrecognized config file type: ' + str(type(configfile)))
 
 		if group is None:
 			group = self.config['experiment'].get('group', False)
@@ -203,3 +216,58 @@ class Experiment:
 			Join given path elements to the experiment directory path.
 		'''
 		return os.path.join(self.dir, *args)
+
+
+class GridSearch:
+	def __init__(self, parameters, grid):
+		'''
+			Iterator through all combinations of given parameter alternative values.
+
+			Parameters
+			----------
+			parameters: {str, dict}
+				A dictionary containing all parameters with default values. If string, it is treated as a filepath of the JSON or YAML config file.
+			grid: {str, dict}
+				A dictionary containing lists of possible values for each of the given parameters. If string, it is treated as a filepath of the JSON or YAML config file.
+		'''
+		if isinstance(parameters, str):
+			self.parameters = load_configfile(parameters)
+		elif isinstance(parameters, dict):
+			self.parameters = parameters
+		else:
+			raise RuntimeError('Unrecognized grid type: ' + str(type(grid)))
+
+		if isinstance(grid, str):
+			self.grid = load_configfile(grid)
+		elif isinstance(grid, dict):
+			self.grid = grid
+		else:
+			raise RuntimeError('Unrecognized grid type: ' + str(type(grid)))
+
+		self.__lengths = {k: len(self.grid[k]) for k in self.grid.keys()}
+
+	def __len__(self):
+		return math.prod(self.__lengths.values())
+
+	def __iter__(self):
+		self.__idx = {k: 0 for k in self.grid.keys()}
+		self.__idx[list(self.grid.keys())[0]] = -1  # Initial condition.
+		return self
+
+	def __next__(self):
+		# Update indices.
+		t = True
+		for k in self.__idx.keys():
+			self.__idx[k] += 1
+			if self.__idx[k] == self.__lengths[k]:
+				self.__idx[k] = 0
+				continue
+			t = False
+			break
+		if t:
+			raise StopIteration
+
+		# Update current parameter values.
+		for k in self.grid.keys():
+			self.parameters[k] = self.grid[k][self.__idx[k]]
+		return self.parameters
