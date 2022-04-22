@@ -145,7 +145,7 @@ def mask_image(img, mask, color=[0,1,0], alpha=0.5):
 	if isinstance(mask, np.ndarray):
 		mask = mask.squeeze()[..., None] * alpha
 		color = np.array(color).reshape(1,1,3)
-	if isinstance(mask, torch.Tensor):
+	elif isinstance(mask, torch.Tensor):
 		mask = mask.squeeze().unsqueeze(2) * alpha
 		color = torch.tensor(color).reshape(1,1,3)
 	else:

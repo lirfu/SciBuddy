@@ -250,6 +250,7 @@ class GridSearch:
 		return math.prod(self.__lengths.values())
 
 	def __iter__(self):
+		self.__i = -1
 		self.__idx = {k: 0 for k in self.grid.keys()}
 		self.__idx[list(self.grid.keys())[0]] = -1  # Initial condition.
 		return self
@@ -270,4 +271,6 @@ class GridSearch:
 		# Update current parameter values.
 		for k in self.grid.keys():
 			self.parameters[k] = self.grid[k][self.__idx[k]]
-		return self.parameters
+
+		self.__i += 1
+		return self.parameters, self.__i

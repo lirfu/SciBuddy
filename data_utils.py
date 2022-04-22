@@ -73,8 +73,8 @@ def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, num
 
 		convert: str, optional
 			Target Pillow format to which loaded image is converted.
-			Common values: `L` for 8-bit grayscale, `RGB` for 8-bit color, `I` for 32-bit integers, 
-			`F` for 32-bit floats. Check Pillow documentation on `Modes` for more options. If `None`, 
+			Common values: `L` for 8-bit grayscale, `RGB` for 8-bit color, `I` for 32-bit integers,
+			`F` for 32-bit floats. Check Pillow documentation on 'Modes' for more options. If `None`,
 			original (Pillow automatic) format is kept. Default: None
 
 		flip: bool, optional
@@ -82,6 +82,9 @@ def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, num
 
 		as_hwc: bool, optional
 			Swaps the channels dimension to the end. Default: False
+
+		numpy: bool, optional
+			Returns the image as a numpy.ndarray. Otherwise, as a torch.Tensor. Default: False
 	'''
 	if not os.path.exists(filepath):
 		raise RuntimeError('Image file not found:', filepath)
@@ -150,7 +153,7 @@ def mesh_loader(model_dir, filename='model', force_mesh=True, extensions=['obj',
 		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
 	if len(files) == 0:
 		raise RuntimeError(f'Found no files matching: {filename}.{extensions}')
-	
+
 	force = 'mesh' if force_mesh else None
 	model = trimesh.load(files[0], force=force)  # TODO Here losing texturing on force. Try with PyTorch3D!
 
@@ -160,7 +163,7 @@ def mesh_loader(model_dir, filename='model', force_mesh=True, extensions=['obj',
 
 def pointcloud_loader(model_dir, filename='pointcloud', extensions=['ply','npy']) -> trimesh.PointCloud:
 	files = find_files(model_dir, filename, extensions)
-	
+
 	if len(files) > 1:
 		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
 	if len(files) == 0:
@@ -180,7 +183,7 @@ def pointcloud_loader(model_dir, filename='pointcloud', extensions=['ply','npy']
 
 def voxel_loader(model_dir, filename='voxel', extensions=['binvox']) -> trimesh.PointCloud:
 	files = find_files(model_dir, filename, extensions)
-	
+
 	if len(files) > 1:
 		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
 	if len(files) == 0:
@@ -206,7 +209,7 @@ def cameraposes_loader(model_dir, filename='camera_poses', extensions='npy') -> 
 
 	if len(files) == 0:
 		raise RuntimeError(f'Found no files matching: {filename}.{extensions}')
-	
+
 	if len(files) > 1:
 		print(f'Found {len(files)} matching files! Choosing file {files[0]} from {files}.')
 	return np.load(files[0])
@@ -215,7 +218,7 @@ def cameraposes_loader(model_dir, filename='camera_poses', extensions='npy') -> 
 def multi_loader(dataset_dir, files, loader_fns):
 	if not os.path.exists(dataset_dir):
 		raise RuntimeError('Path does not exist:', dataset_dir)
-	
+
 	if callable(loader_fns):
 		loader_fns = [loader_fns]
 
@@ -287,7 +290,7 @@ def collate_index_pose_image(samples):
 
 class MVRSilhouetteDataset(torch.utils.data.Dataset):
 	'''
-		Multi view reconstruction from silhouettes. 
+		Multi view reconstruction from silhouettes.
 	'''
 	def __init__(self, split_file, data_dir='data', force_shape=None):
 		self.silh_files = load_split(split_file, prefix=data_dir)
@@ -295,7 +298,7 @@ class MVRSilhouetteDataset(torch.utils.data.Dataset):
 
 	def __len__(self):
 		return len(self.silh_files)
-	
+
 	def __getitem__(self, i):
 		'''
 			Reads all images and camera poses for given model as a batch.
@@ -310,7 +313,7 @@ class MVRSilhouetteDataset(torch.utils.data.Dataset):
 
 class MVRColorDataset(torch.utils.data.Dataset):
 	'''
-		Multi view reconstruction from RGB images. 
+		Multi view reconstruction from RGB images.
 	'''
 	def __init__(self, split_file, data_dir='data', force_shape=None):
 		self.files = load_split(split_file, prefix=data_dir)
@@ -318,7 +321,7 @@ class MVRColorDataset(torch.utils.data.Dataset):
 
 	def __len__(self):
 		return len(self.files)
-	
+
 	def __getitem__(self, i):
 		'''
 			Reads all images and camera poses for given model as a batch.
