@@ -184,6 +184,53 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 	if title is not None:
 		plt.suptitle(title)
 
+class PlotImageGridContext:
+	def __init__(self, num_of_images, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None):
+		self.margins = margins
+		self.quiet = quiet
+		self.aspect = aspect
+		self.colorbar = colorbar
+		self.ticks = ticks
+		self.title = title
+		self.i = 0
+		self.N = num_of_images
+
+	def __enter__(self):
+		self.W = max(round(math.sqrt(self.N) * self.aspect), 1)
+		self.H = max(math.ceil(self.N / self.W), 1)
+		if self.N < self.W:  # If images don't fill a single row.
+			self.W = self.N
+		return self
+
+	def add_image(self, img, name=None, **kwargs):
+		if not self.quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
+			if name is None:
+				print(f'Image {self.i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+			else:
+				print(f'{name} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+		plt.subplot(self.H, self.W, self.i+1)
+		if name is not None:
+			plt.title(name)
+		kwargs.setdefault('cmap', 'gray')
+		im = plt.imshow(img, **kwargs)
+		plt.gca().axes.xaxis.set_visible(self.ticks)
+		plt.gca().axes.yaxis.set_visible(self.ticks)
+		if self.colorbar:
+			plt.colorbar(im)
+		self.i += 1
+
+	def __exit__(self, type, value, trace):
+		plt.gcf().subplots_adjust(
+			top=1-self.margins,
+			bottom=self.margins,
+			left=self.margins,
+			right=1-self.margins,
+			hspace=self.margins,
+			wspace=self.margins
+		)
+		if self.title is not None:
+			plt.suptitle(self.title)
+
 
 def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01):
 	C = 1
