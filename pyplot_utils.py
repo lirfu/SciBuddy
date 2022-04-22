@@ -8,14 +8,12 @@ from tqdm import tqdm
 
 
 class PlotContext:
-	def __init__(self, ex=None, filename=None, show=False, clear=True, **kwargs):
+	def __init__(self, filename=None, show=False, clear=True, **kwargs):
 		'''
 			Manages a context for a single plot. On enter, creates a global figure with given kwargs.
 
 			Parameters
 			----------
-			ex : Experiment, optional
-				Experiment used to save the image upon exit. Skipped if None. Default: None.
 			filename : str, optional
 				File path and extension. If `ex` is defined, use it to prepend experiment path. Skipped if None. Default: None.
 			show : bool, optional
@@ -23,7 +21,6 @@ class PlotContext:
 			clear : bool, optional
 				Clears the figure and closes plot upon exit. Default: True.
 		'''
-		self.ex = ex
 		self.filename = filename
 		self.show = show
 		self.clear = clear
@@ -41,10 +38,7 @@ class PlotContext:
 
 	def __exit__(self, type, value, trace):
 		if self.filename is not None:
-			if self.ex is not None:
-				self.ex.save_pyplot_image(self.filename)
-			else:
-				plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False, dpi=self.kwargs.get('dpi', None))
+			plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False, dpi=self.kwargs.get('dpi', None))
 		if self.show:
 			plt.show()
 		if self.clear:
@@ -160,8 +154,7 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 	if isinstance(names, str):
 		names = [names]
 	N = len(imgs)
-	Nr = math.sqrt(N)
-	W = max(round(Nr * aspect), 1)
+	W = max(round(math.sqrt(N) * aspect), 1)
 	H = max(math.ceil(N / W), 1)
 	if N < W:
 		W = N
@@ -190,6 +183,7 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 	)
 	if title is not None:
 		plt.suptitle(title)
+
 
 def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01):
 	C = 1
