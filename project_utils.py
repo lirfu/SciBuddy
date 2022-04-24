@@ -92,7 +92,7 @@ def load_configfile(path):
 
 
 class Experiment:
-	def __init__(self, configfile=None, param_index=1, group=None, version=None, timestamp=None):
+	def __init__(self, configfile=None, param_index=1, name=None, root=None, group=None, version=None, timestamp=None, store_config=True):
 		'''
 			Create an experiment insance and load/set the configuration dictionary. Creates the experiment directory. Config file must contain a 
 
@@ -102,12 +102,18 @@ class Experiment:
 				Filepath of the JSON or YAML config file or the actual parameters dictionary (for runtime configuration). If None, attempt reading filepath from program parameters. (default: None)
 			param_index : int
 				Index of the config filepath in program parameters. (default: 1)
+			name : str
+				Name of the experiment, used as the prefix of the experiment. If None, attempt reading from loaded config. (default: None)
+			root : str
+				Path to the root folder that will contain experiments. If None, attempt reading from loaded config. (default: None)
 			group : bool, optional
 				Group project versions by project name (adds a directory level). If None, attempt reading from loaded config. (default: False)
 			version : str, optional
 				Append a version string to experiment directory name. If None, attempt reading from loaded config. (default: '')
 			timestamp : bool, optional
 				Add a timestamp to project folder name (rudimentary experiment versioning, protects from overwritting results). If None, attempt reading from loaded config. (default: True)
+			store_config: bool, optional
+				Save the config file into the experiment folder. (default: True)
 		'''
 		if configfile is None:  # Attempt extracting from program arguments.
 			if len(sys.argv) < param_index+1:
@@ -128,22 +134,27 @@ class Experiment:
 			version = self.config['experiment'].get('version', None)
 		if timestamp is None:
 			timestamp = self.config['experiment'].get('timestamp', True)
+		if name is None:
+			name = self.config['experiment']['name']
+		if root is None:
+			root = self.config['experiment'].get('root', 'out')
 
 		# Create experiment output folder.
-		self.name = self.dir = self.config['experiment']['name']
+		self.name = self.dir = name
 		if group:  # Group dirs by name.
 			self.dir = os.path.join(self.name, self.name)
 		if version is not None:  # Append version to dir name.
 			self.dir = self.dir + '_' + str(version)
 		if timestamp:  # Append timestamp to dir name.
 			from datetime import datetime
-			self.dir = self.dir + '_' + datetime.now().strftime('%Y%m%d%H%M%S')
-		self.dir = os.path.join(self.config['experiment'].get('root', 'out'), self.dir.replace(' ', '_'))
+			self.dir = self.dir + '_' + datetime.now().strftime('%Y%m%d%H%M%S%f')
+		self.dir = os.path.join(root, self.dir.replace(' ', '_'))
 		self.makedir(self.dir)
 
 		# Store experiment params.
-		with open(self.path('parameters.json'), 'w') as f:
-			json.dump(self.config, f, indent='\t')
+		if store_config:
+			with open(self('parameters.json'), 'w') as f:
+				json.dump(self.config, f, indent='\t')
 
 	def __getitem__(self, k):
 		return self.config[k]
@@ -159,6 +170,18 @@ class Experiment:
 			Basename of the experiment directory path.
 		'''
 		return os.path.basename(self.dir)
+
+	def new_subexperiment(self, config, name, group=True, version=None, timestamp=True, store_config=True):
+		'''
+			Create a sub-experiment within this one. Used for iterated development over components or over entire projects.
+
+			For component-wise iteration, use parameters `group=True` and `timestamp=True`.
+			This is by default.
+
+			For project-wise iteration, use parameters `group=False` and `timestamp=False`.
+
+		'''
+		return Experiment(config, name=name, root=self.dir, group=group, version=version, timestamp=timestamp, store_config=store_config)
 
 	def list_similar(self):
 		'''
