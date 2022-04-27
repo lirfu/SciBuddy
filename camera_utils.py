@@ -1,6 +1,8 @@
 import cv2
 import torch
 
+from .data_utils import torch_float_to_torch_uint8
+
 class ComputerCamera:
 	def __init__(self, idx=0):
 		self.cam = cv2.VideoCapture(idx)
@@ -22,9 +24,6 @@ class ComputerCamera:
 
 def cvframe_to_torch_float(frame):
 	return (torch.tensor(frame, dtype=torch.float) * (1./255)).permute(2,0,1)
-
-def torch_float_to_torch_uint8(img):
-	return (img * 255.).to(torch.uint8)
 
 def torch_float_to_cvframe(img):
 	img = torch_float_to_torch_uint8(img).permute(1,2,0)

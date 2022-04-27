@@ -9,6 +9,9 @@ from torchvision import transforms
 import trimesh
 
 
+def torch_float_to_torch_uint8(img):
+	return (img * 255.).to(torch.uint8)
+
 def chw_to_hwc(img: torch.Tensor):
 	l = len(img.shape)
 	if l == 2:
