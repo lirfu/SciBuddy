@@ -293,7 +293,12 @@ class GridSearch:
 
 		# Update current parameter values.
 		for k in self.grid.keys():
-			self.parameters[k] = self.grid[k][self.__idx[k]]
+			v = self.grid[k][self.__idx[k]]
+			if isinstance(v, dict):  # For parameter groups (parameters that must be used jointly).
+				for kk, vv in v.items():
+					self.parameters[kk] = vv
+			else:  # For standalone parameters.
+				self.parameters[k] = self.grid[k][self.__idx[k]]
 
 		self.__i += 1
 		return self.parameters, self.__i
