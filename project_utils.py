@@ -151,10 +151,22 @@ class Experiment:
 		self.dir = os.path.join(root, self.dir.replace(' ', '_'))
 		self.makedir(self.dir)
 
-		# Store experiment params.
 		if store_config:
-			with open(self('parameters.json'), 'w') as f:
-				json.dump(self.config, f, indent='\t')
+			self.store_config(self.config)
+
+	def store_config(self, config=None):
+		"""
+			Store experiment config dict.
+
+			Parameters
+			----------
+			config: dict, optional
+				Configuration dict to explicitly store (if different than experiment's). If None, store experiment's config. Default: None
+		"""
+		if config is None:
+			config = self.config
+		with open(self('parameters.json'), 'w') as f:
+			json.dump(config, f, indent='\t')
 
 	def __getitem__(self, k):
 		return self.config[k]
