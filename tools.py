@@ -1,6 +1,7 @@
-import time
+from time import perf_counter
+from os import getpid
+from psutil import Process
 import gc
-
 
 def arr_stats(a):
 	return f'Range {(a.min(), a.max())} with shape {a.shape} and type {a.dtype}'
@@ -13,7 +14,7 @@ class Timer:
 		'''
 			Resets starting and lap point to current time.
 		'''
-		self.start_t = time.time()
+		self.start_t = perf_counter()
 		self.lap_t = self.start_t
 
 	@property
@@ -21,14 +22,14 @@ class Timer:
 		'''
 			Returns time from the recorded starting point.
 		'''
-		return time.time() - self.start_t
+		return perf_counter() - self.start_t
 
 	@property
 	def lap(self):
 		'''
 			Returns time from last recorded lap point. Modifies lap point to current point.
 		'''
-		t = time.time()
+		t = perf_counter()
 		d = t - self.lap_t
 		self.lap_t = t
 		return d
@@ -38,7 +39,7 @@ class Timer:
 		'''
 			Returns time from last recorded lap. Doesn't modify the last lap point.
 		'''
-		return time.time() - self.lap_t
+		return perf_counter() - self.lap_t
 
 	def __format(self, dt):
 		h = int(dt / 3600)
@@ -93,3 +94,22 @@ class GarbageCollectionContext:
 			gc.disable()
 		if self.freeze:
 			gc.unfreeze()
+
+class MemoryMeasure:
+	def __init__(self):
+		self.reset()
+
+	def reset(self):
+		self.__lap = self.__start = Process(getpid()).memory_info().rss
+
+	def total(self):
+		return Process(getpid()).memory_info().rss - self.__start
+
+	def lap(self):
+		t = Process(getpid()).memory_info().rss
+		d = t - self.__lap
+		self.__lap = t
+		return d
+
+	def lap_quiet(self):
+		return Process(getpid()).memory_info().rss - self.__lap

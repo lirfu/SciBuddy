@@ -7,3 +7,4 @@ tqdm
 trimesh
 opencv-python
 pyyaml
+psutil

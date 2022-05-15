@@ -78,12 +78,12 @@ class DevnullLogger(Logger):
 		return 'DevnullLogger'
 
 class FileLogger(Logger):
-	def __init__(self, filepath, debug=True):
+	def __init__(self, filepath, debug=True, append=False):
 		self.debug = debug
 		directory = os.path.dirname(filepath)
 		if directory != '':
 			os.makedirs(directory, exist_ok=True)
-		self.file = open(filepath, 'w')
+		self.file = open(filepath, 'a' if append else 'w')
 
 	def __del__(self):
 		self.file.close()
