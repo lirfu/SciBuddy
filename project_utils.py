@@ -149,12 +149,12 @@ class Experiment:
 			from datetime import datetime
 			self.dir = self.dir + '_' + datetime.now().strftime('%Y%m%d%H%M%S%f')
 		self.dir = os.path.join(root, self.dir.replace(' ', '_'))
-		self.makedir(self.dir)
+		os.makedirs(self.dir, exist_ok=True)
 
 		if store_config:
 			self.store_config(self.config)
 
-	def store_config(self, config=None):
+	def store_config(self, config=None, use_yaml=True):
 		"""
 			Store experiment config dict.
 
@@ -165,8 +165,11 @@ class Experiment:
 		"""
 		if config is None:
 			config = self.config
-		with open(self('parameters.json'), 'w') as f:
-			json.dump(config, f, indent='\t')
+		with open(self('parameters.yaml'), 'w') as f:
+			if use_yaml:
+				yaml.dump(config, f)
+			else:
+				json.dump(config, f, indent='\t')
 
 	def __getitem__(self, k):
 		return self.config[k]
@@ -227,24 +230,24 @@ class Experiment:
 	def exists(self, filename):
 		return os.path.exists(self.path(filename))
 
-	def makedir(self, dirname):
+	def makedirs(self, dir):
 		'''
-			Creates given directory path with missing parents. If directory exist, returns.
+			Creates the directories for given leaf directory path.
 
 			Parameters
 			----------
 
-			dirname : str
-				Path to target directory.
+			dir : str
+				Path to target file.
 
 			Returns
 			----------
-			dirname : str
-				Unmodified input, used for method chaining.
+			dir : str
+				File path concatenated to experiment root.
 		'''
-		if not os.path.exists(dirname):
-			os.makedirs(dirname)
-		return dirname
+		path = self.path(dir)
+		os.makedirs(path, exist_ok=True)
+		return path
 
 	def path(self, *args):
 		'''
