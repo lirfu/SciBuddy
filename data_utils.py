@@ -19,7 +19,7 @@ def chw_to_hwc(img: torch.Tensor):
 	elif l == 3:
 		return img.moveaxis(0,2)
 	elif l == 4:
-		return img.moveaxis(1,2)
+		return img.moveaxis(1,3)
 	else:
 		raise RuntimeError('Unrecognized image shape: ' + str(l))
 

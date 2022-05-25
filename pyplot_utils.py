@@ -1,3 +1,4 @@
+import os
 import math
 
 import numpy as np
@@ -146,25 +147,49 @@ def mask_image(img, mask, color=[0,1,0], alpha=0.5):
 		RuntimeError('Unknown mask type:', type(mask))
 	return (1-mask) * img + mask * color
 
-def show_images(*imgs, names=None, **kwargs):
+def plt_set_fullscreen():
+	backend = str(plt.get_backend())
+	mgr = plt.get_current_fig_manager()
+	if backend == 'TkAgg':
+		if os.name == 'nt':
+			mgr.window.state('zoomed')
+		else:
+			mgr.resize(*mgr.window.maxsize())
+	elif backend == 'wxAgg':
+		mgr.frame.Maximize(True)
+	elif backend == 'Qt4Agg':
+		mgr.window.showMaximized()
+
+def show_images(*imgs, names=None, fullscreen=True, **kwargs):
 	with PlotContext(show=True):
+		if fullscreen:
+			plt_set_fullscreen()
 		draw_images(*imgs, names=names, **kwargs)
 
-def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, **kwargs):
+def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None, **kwargs):
 	if isinstance(names, str):
 		names = [names]
 	N = len(imgs)
-	W = max(round(math.sqrt(N) * aspect), 1)
-	H = max(math.ceil(N / W), 1)
+	if force_rows is None:
+		W = max(round(math.sqrt(N) * aspect), 1)
+		H = max(math.ceil(N / W), 1)
+	else:
+		H = force_rows
+		W = max(math.ceil(N / H), 1)
 	if N < W:
 		W = N
+	offset = 0
 	for i,img in enumerate(imgs):
+		if img is None:
+			offset += 1
+			continue
+		i -= offset
 		if not quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
 			if names is None:
 				print(f'Image {i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
 			else:
 				print(f'{names[i]} of shape {img.shape} has range: [{img.min()},{img.max()}]')
-		plt.subplot(H,W,i+1)
+		plt.subplot(H,W,i+1+offset)
 		if names is not None:
 			plt.title(names[i])
 		kwargs.setdefault('cmap', 'gray')
