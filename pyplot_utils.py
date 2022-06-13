@@ -157,7 +157,7 @@ def plt_set_fullscreen():
 			mgr.resize(*mgr.window.maxsize())
 	elif backend == 'wxAgg':
 		mgr.frame.Maximize(True)
-	elif backend == 'Qt4Agg':
+	elif backend == 'Qt4Agg' or backend == 'QtAgg':
 		mgr.window.showMaximized()
 
 def show_images(*imgs, names=None, fullscreen=True, **kwargs):
@@ -210,7 +210,7 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 		plt.suptitle(title)
 
 class PlotImageGridContext:
-	def __init__(self, num_of_images, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None):
+	def __init__(self, num_of_images, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None):
 		self.margins = margins
 		self.quiet = quiet
 		self.aspect = aspect
@@ -219,29 +219,35 @@ class PlotImageGridContext:
 		self.title = title
 		self.i = 0
 		self.N = num_of_images
+		self.force_rows = None
 
 	def __enter__(self):
-		self.W = max(round(math.sqrt(self.N) * self.aspect), 1)
-		self.H = max(math.ceil(self.N / self.W), 1)
+		if self.force_rows is None:
+			self.W = max(round(math.sqrt(self.N) * self.aspect), 1)
+			self.H = max(math.ceil(self.N / self.W), 1)
+		else:
+			self.H = self.force_rows
+			self.W = max(math.ceil(self.N / self.H), 1)
 		if self.N < self.W:  # If images don't fill a single row.
 			self.W = self.N
 		return self
 
 	def add_image(self, img, name=None, **kwargs):
-		if not self.quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
-			if name is None:
-				print(f'Image {self.i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
-			else:
-				print(f'{name} of shape {img.shape} has range: [{img.min()},{img.max()}]')
-		plt.subplot(self.H, self.W, self.i+1)
-		if name is not None:
-			plt.title(name)
-		kwargs.setdefault('cmap', 'gray')
-		im = plt.imshow(img, **kwargs)
-		plt.gca().axes.xaxis.set_visible(self.ticks)
-		plt.gca().axes.yaxis.set_visible(self.ticks)
-		if self.colorbar:
-			plt.colorbar(im)
+		if img is not None:
+			if not self.quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
+				if name is None:
+					print(f'Image {self.i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+				else:
+					print(f'{name} of shape {img.shape} has range: [{img.min()},{img.max()}]')
+			plt.subplot(self.H, self.W, self.i+1)
+			if name is not None:
+				plt.title(name)
+			kwargs.setdefault('cmap', 'gray')
+			im = plt.imshow(img, **kwargs)
+			plt.gca().axes.xaxis.set_visible(self.ticks)
+			plt.gca().axes.yaxis.set_visible(self.ticks)
+			if self.colorbar:
+				plt.colorbar(im)
 		self.i += 1
 
 	def __exit__(self, type, value, trace):
