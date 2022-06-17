@@ -4,12 +4,10 @@ import math
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-
 
 
 class PlotContext:
-	def __init__(self, filename=None, show=False, clear=True, **kwargs):
+	def __init__(self, filename=None, show=False, fullscreen=True, clear=True, **kwargs):
 		'''
 			Manages a context for a single plot. On enter, creates a global figure with given kwargs.
 
@@ -24,6 +22,7 @@ class PlotContext:
 		'''
 		self.filename = filename
 		self.show = show
+		self.fullscreen = fullscreen
 		self.clear = clear
 		self.kwargs = kwargs
 
@@ -36,6 +35,8 @@ class PlotContext:
 	def __enter__(self):
 		PlotContext.clear()
 		plt.figure(clear=True, **self.kwargs)
+		if self.show and self.fullscreen:
+			plt_set_fullscreen()
 
 	def __exit__(self, type, value, trace):
 		if self.filename is not None:
@@ -69,18 +70,6 @@ def draw_class_distribution(features, labels, colormap='hsv', marker='.', sizes=
 	if legend:
 		legend = plt.legend(*scatter.legend_elements(), title='Labels')
 		plt.gca().add_artist(legend)
-
-def draw_images_grid(images, grid, labels=None, labels_prefix='', fontsize=10):
-	'''
-		Draws given 1D list of images into a grid, filling row-by-row (pyplot style).
-	'''
-	for i,img in enumerate(tqdm(images, leave=False, desc='Drawing image grid'), 1):
-		ax = plt.subplot(*grid, i)
-		ax.imshow(img, cmap='gray', interpolation='none')
-		ax.set_xticks([])
-		ax.set_yticks([])
-		if labels is not None:
-  			ax.set_title(labels_prefix + str(labels[i-1]), fontsize=fontsize)
 
 def draw_ranges(x, y, y_m, y_M, linecolor='black', rangestyle=':', rangecolor='blue', rangealpha=0.25):
 	ax = plt.gca()
@@ -123,18 +112,29 @@ def make_2d_grid(m, M, shape):
 	gw, gh = torch.meshgrid(h, w)
 	return torch.stack([gh, gw], dim=2)
 
+def resolve_grid_shape(N, aspect=1, force_rows=None):
+	"""
+		Resolves grid shape based on constraints of aspect ratio and dimension forcing.
 
-def fit_grid_shape(length, prefer_width=True):
-	dsq = math.sqrt(length)
-	if prefer_width:
-		shape = (math.ceil(dsq), math.floor(dsq))
-		if math.modf(dsq)[0] >= 0.5:
-			shape = (shape[0], shape[1]+1)
+		Parameters
+		----------
+		N : int
+			Number of cells.
+		aspect : float, optional
+			Aspect ratio (width/height). Default: 1
+		force_rows : int, optional
+			Fixed number of rows in the grid with width filled left-to-right. If `None` is ignored. Default: `None`
+	"""
+	if force_rows is None:
+		W = max(round(math.sqrt(N) * aspect), 1)
+		H = max(math.ceil(N / W), 1)
 	else:
-		shape = (math.floor(dsq), math.ceil(dsq))
-		if math.modf(dsq)[0] >= 0.5:
-			shape = (shape[0]+1, shape[1])
-	return shape
+		H = force_rows
+		W = max(math.ceil(N / H), 1)
+	if N < W:
+		W = N
+		H = 1
+	return W, H
 
 def mask_image(img, mask, color=[0,1,0], alpha=0.5):
 	if isinstance(mask, np.ndarray):
@@ -157,57 +157,10 @@ def plt_set_fullscreen():
 			mgr.resize(*mgr.window.maxsize())
 	elif backend == 'wxAgg':
 		mgr.frame.Maximize(True)
-	elif backend == 'Qt4Agg' or backend == 'QtAgg':
+	elif backend == 'Qt5Agg' or backend == 'Qt4Agg' or backend == 'QtAgg':
 		mgr.window.showMaximized()
-
-def show_images(*imgs, names=None, fullscreen=True, **kwargs):
-	with PlotContext(show=True):
-		if fullscreen:
-			plt_set_fullscreen()
-		draw_images(*imgs, names=names, **kwargs)
-
-def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None, **kwargs):
-	if isinstance(names, str):
-		names = [names]
-	N = len(imgs)
-	if force_rows is None:
-		W = max(round(math.sqrt(N) * aspect), 1)
-		H = max(math.ceil(N / W), 1)
 	else:
-		H = force_rows
-		W = max(math.ceil(N / H), 1)
-	if N < W:
-		W = N
-	offset = 0
-	for i,img in enumerate(imgs):
-		if img is None:
-			offset += 1
-			continue
-		i -= offset
-		if not quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
-			if names is None:
-				print(f'Image {i+1} of shape {img.shape} has range: [{img.min()},{img.max()}]')
-			else:
-				print(f'{names[i]} of shape {img.shape} has range: [{img.min()},{img.max()}]')
-		plt.subplot(H,W,i+1+offset)
-		if names is not None:
-			plt.title(names[i])
-		kwargs.setdefault('cmap', 'gray')
-		im = plt.imshow(img, **kwargs)
-		plt.gca().axes.xaxis.set_visible(ticks)
-		plt.gca().axes.yaxis.set_visible(ticks)
-		if colorbar:
-			plt.colorbar(im)
-	plt.gcf().subplots_adjust(
-		top=1-margins,
-		bottom=margins,
-		left=margins,
-		right=1-margins,
-		hspace=margins,
-		wspace=margins
-	)
-	if title is not None:
-		plt.suptitle(title)
+		print('--> Cannot maximize pyplot wintow, unknown backend: ', backend)
 
 class PlotImageGridContext:
 	def __init__(self, num_of_images, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None):
@@ -217,19 +170,12 @@ class PlotImageGridContext:
 		self.colorbar = colorbar
 		self.ticks = ticks
 		self.title = title
-		self.i = 0
 		self.N = num_of_images
-		self.force_rows = None
+		self.force_rows = force_rows
 
 	def __enter__(self):
-		if self.force_rows is None:
-			self.W = max(round(math.sqrt(self.N) * self.aspect), 1)
-			self.H = max(math.ceil(self.N / self.W), 1)
-		else:
-			self.H = self.force_rows
-			self.W = max(math.ceil(self.N / self.H), 1)
-		if self.N < self.W:  # If images don't fill a single row.
-			self.W = self.N
+		self.i = 0
+		self.W, self.H = resolve_grid_shape(self.N, self.aspect, self.force_rows)
 		return self
 
 	def add_image(self, img, name=None, **kwargs):
@@ -262,6 +208,19 @@ class PlotImageGridContext:
 		if self.title is not None:
 			plt.suptitle(self.title)
 
+def show_images(*imgs, names=None, fullscreen=True, **kwargs):
+	with PlotContext(show=True, fullscreen=fullscreen):
+		draw_images(*imgs, names=names, **kwargs)
+
+def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None, **kwargs):
+	with PlotImageGridContext(len(imgs), margins, quiet, aspect, colorbar, ticks, title, force_rows) as pc:
+		for i,img in enumerate(imgs):
+			if names is not None:
+				n = names[i]
+			else:
+				n = None
+			pc.add_image(img, n, **kwargs)
+
 
 def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01):
 	C = 1
@@ -279,15 +238,3 @@ def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, p
 	plt.ylim(-padding,1+padding)
 	if title is not None:
 		plt.title(title)
-
-def maximize_window():
-	plot_backend = plt.get_backend()
-	mng = plt.get_current_fig_manager()
-	if plot_backend == 'TkAgg':
-		mng.resize(*mng.window.maxsize())
-	elif plot_backend == 'wxAgg':
-		mng.frame.Maximize(True)
-	elif plot_backend == 'Qt4Agg':
-		mng.window.showMaximized()
-	else:
-		print('~> Cannot maximize window, unknown backend:', plot_backend)
