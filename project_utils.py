@@ -92,7 +92,7 @@ def load_configfile(path):
 
 
 class Experiment:
-	def __init__(self, configfile=None, param_index=1, name=None, root=None, group=None, version=None, timestamp=None, store_config=True):
+	def __init__(self, configfile=None, param_index=1, name=None, root=None, group=None, version=None, timestamp=None, store_config=True, parameters_version=None):
 		'''
 			Create an experiment insance and load/set the configuration dictionary. Creates the experiment directory. Config file must contain a 
 
@@ -114,6 +114,8 @@ class Experiment:
 				Add a timestamp to project folder name (rudimentary experiment versioning, protects from overwritting results). If None, attempt reading from loaded config. (default: True)
 			store_config: bool, optional
 				Save the config file into the experiment folder. (default: True)
+			parameters_version: str, optional
+				Store the parameters version into the config to allow downstream versioning.
 		'''
 		if configfile is None:  # Attempt extracting from program arguments.
 			if len(sys.argv) < param_index+1:
@@ -138,6 +140,8 @@ class Experiment:
 			name = self.config['experiment']['name']
 		if root is None:
 			root = self.config['experiment'].get('root', 'out')
+		if parameters_version is not None:
+			self.config['experiment']['parameters_version'] = parameters_version
 
 		# Create experiment output folder.
 		self.name = self.dir = name
