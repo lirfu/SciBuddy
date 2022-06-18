@@ -178,7 +178,7 @@ class PlotImageGridContext:
 		self.W, self.H = resolve_grid_shape(self.N, self.aspect, self.force_rows)
 		return self
 
-	def add_image(self, img, name=None, **kwargs):
+	def add_image(self, img, name=None, fontsize=4, **kwargs):
 		if img is not None:
 			if not self.quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
 				if name is None:
@@ -187,13 +187,14 @@ class PlotImageGridContext:
 					print(f'{name} of shape {img.shape} has range: [{img.min()},{img.max()}]')
 			plt.subplot(self.H, self.W, self.i+1)
 			if name is not None:
-				plt.title(name)
+				plt.title(name, fontdict={'fontsize': fontsize})
 			kwargs.setdefault('cmap', 'gray')
 			im = plt.imshow(img, **kwargs)
 			plt.gca().axes.xaxis.set_visible(self.ticks)
 			plt.gca().axes.yaxis.set_visible(self.ticks)
 			if self.colorbar:
-				plt.colorbar(im)
+				cbar = plt.colorbar(im)
+				cbar.ax.tick_params(labelsize=fontsize)
 		self.i += 1
 
 	def __exit__(self, type, value, trace):
