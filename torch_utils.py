@@ -19,11 +19,9 @@ def reproducibility(seed: int, device: str='cpu'):
 	np.random.seed(seed)
 	torch.manual_seed(seed)
 	device = str(device)
-	if device == 'cuda':
-		torch.cuda.manual_seed_all(seed)
-	elif device.startswith('cuda'):
+	if device.startswith('cuda'):
+		torch.cuda.set_device(device)
 		torch.cuda.manual_seed(seed)
-	# torch.set_deterministic_debug_mode(True)
 	torch.backends.cudnn.deterministic = True
 
 
@@ -54,11 +52,8 @@ class ReproducibleContext:
 			self.rd_state = random.getstate()
 			self.np_state = np.random.get_state()
 			self.tr_state = torch.get_rng_state()
-			if self.device == 'cuda':
-				self.cuda_state = torch.cuda.get_rng_state_all()
-			elif self.device.startswith('cuda'):
+			if self.device.startswith('cuda'):
 				self.cuda_state = torch.cuda.get_rng_state(self.device)
-				torch.cuda.set_device(self.device)
 			reproducibility(self.seed, self.device)
 
 	def __exit__(self, type, value, trace):
@@ -66,9 +61,7 @@ class ReproducibleContext:
 			random.setstate(self.rd_state)
 			np.random.set_state(self.np_state)
 			torch.set_rng_state(self.tr_state)
-			if self.device == 'cuda':
-				torch.cuda.set_rng_state_all(self.cuda_state)
-			elif self.device.startswith('cuda'):
+			if self.device.startswith('cuda'):
 				torch.cuda.set_rng_state(self.cuda_state, self.device)
 
 
