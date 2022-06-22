@@ -20,7 +20,11 @@ def reproducibility(seed: int, device: str='cpu'):
 	torch.manual_seed(seed)
 	device = str(device)
 	if device.startswith('cuda'):
-		torch.cuda.set_device(device)
+		if device == 'cuda':
+			index = 0
+		else:
+			index = int(device.split(':')[1])
+		torch.cuda.set_device(index)
 		torch.cuda.manual_seed(seed)
 	torch.backends.cudnn.deterministic = True
 
