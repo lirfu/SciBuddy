@@ -109,7 +109,7 @@ class Experiment:
 			group : bool, optional
 				Group project versions by project name (adds a directory level). If None, attempt reading from loaded config. (default: False)
 			version : str, optional
-				Append a version string to experiment directory name. If None, attempt reading from loaded config. (default: '')
+				Append a version string to experiment directory name. If None, attempt reading from loaded config. If False, disable reading from config (use for sub-experiments). (default: None)
 			timestamp : bool, optional
 				Add a timestamp to project folder name (rudimentary experiment versioning, protects from overwritting results). If None, attempt reading from loaded config. (default: True)
 			store_config: bool, optional
@@ -134,6 +134,8 @@ class Experiment:
 			group = self.config['experiment'].get('group', False)
 		if version is None:
 			version = self.config['experiment'].get('version', None)
+		elif version is False:
+			version = None
 		if timestamp is None:
 			timestamp = self.config['experiment'].get('timestamp', True)
 		if name is None:
