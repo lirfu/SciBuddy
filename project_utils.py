@@ -90,6 +90,8 @@ def load_configfile(path):
 		else:
 			raise RuntimeError('Unknown config file type: ' + str(path))
 
+def get_git_commit_hash() -> str:
+	return os.popen('git rev-parse HEAD').read().strip()
 
 class Experiment:
 	def __init__(self, configfile=None, param_index=1, name=None, root=None, group=None, version=None, timestamp=None, store_config=True, parameters_version=None):
