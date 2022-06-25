@@ -26,7 +26,7 @@ def reproducibility(seed: int, device: str='cpu'):
 			index = int(device.split(':')[1])
 		torch.cuda.set_device(index)
 		torch.cuda.manual_seed(seed)
-	torch.backends.cudnn.deterministic = True
+	torch.use_deterministic_algorithms(True)
 
 
 class ReproducibleContext:
