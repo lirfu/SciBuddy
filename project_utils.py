@@ -5,6 +5,7 @@ import math
 import json
 import glob
 import shutil
+from typing import Union, Sequence, Any
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -39,14 +40,23 @@ class CheckpointSaver:
 
 
 class GifMaker:
-	def __init__(self, ex, name: str):
+	"""
+		Generates a GIF from given sequence of images.
+	"""
+	def __init__(self, ex: 'Experiment', name: str):
 		self.index = 1
 		self.folder = ex.makedir(ex.path(name))
 		self.name = name
 		self.ex = ex
 		self.clear()
 
-	def __call__(self, img):
+	def __call__(self, img: Union[torch.Tensor,np.ndarray,str]):
+		"""
+			Add image to GIF sequence.
+			The image is stored as a file in the folder <gif_name>.
+			If `img` is a torch tensor or numpy array, stores it as a PNG image,
+			If `img` is a string 'pyplot', stores the current pyplot buffer as a PNG image.
+		"""
 		if isinstance(img, torch.Tensor):
 			pilimg = transforms.ToPILImage()(img.detach().cpu())
 			pilimg.save(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)))
@@ -57,12 +67,20 @@ class GifMaker:
 			plt.savefig(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)), bbox_inches='tight', pad_inches=0, transparent=False)
 		else:
 			raise RuntimeError('Unknown image type for GIF! ({})'.format(type(img)))
-
 		self.index += 1
 
-	def generate(self, duration_sec: int=10, loop: int=0):
+	def generate(self, duration_sec: Union[int,Sequence[int]]=10, loop: int=0):
 		'''
-			Read images from temporary folder and generate a GIF.
+			Read images from the <gif_name> folder and generate a GIF.
+			Parameters
+			----------
+			duration_sec : int, list(int), optional
+				Total GIF duration in seconds or the per-frame durations in seconds.
+				Default: 10
+			loop : int, optional
+				Number of loops through all the entire GIF.
+				If `0`, loops indefinitely.
+				Default: 0
 		'''
 		l = [Image.open(f).convert('P') for f in sorted(glob.glob(os.path.join(self.folder,'img_*.png')))]
 		if len(l) == 0:
@@ -81,7 +99,10 @@ class GifMaker:
 		os.makedirs(self.folder)
 
 
-def load_configfile(path):
+def load_configfile(path : str):
+	"""
+		Load the configuration dictionary from filepath.
+	"""
 	with open(path, 'r') as f:
 		if path.endswith('.json'):
 			return json.loads(re.sub("//.*", "", f.read(), flags=re.MULTILINE))  # Simulating comments.
@@ -94,30 +115,58 @@ def get_git_commit_hash() -> str:
 	return os.popen('git rev-parse HEAD').read().strip()
 
 class Experiment:
-	def __init__(self, configfile=None, param_index=1, name=None, root=None, group=None, version=None, timestamp=None, store_config=True, parameters_version=None):
+	def __init__(
+		self,
+		configfile : Union[str,dict]=None,
+		param_index: int=1,
+		name : str=None,
+		root : str=None,
+		group : bool=None,
+		version : str=None,
+		timestamp : bool=None,
+		store_config : bool=True,
+		parameters_version : str=None
+	):
 		'''
-			Create an experiment insance and load/set the configuration dictionary. Creates the experiment directory. Config file must contain a 
+			Create an experiment insance and prepare&save the configuration dictionary.
+			Creates the experiment directory.
 
 			Parameters
 			----------
 			configfile : {str, dict}
-				Filepath of the JSON or YAML config file or the actual parameters dictionary (for runtime configuration). If None, attempt reading filepath from program parameters. (default: None)
+				Filepath of the JSON or YAML config file or the actual parameters dictionary (for runtime configuration).
+				If None, attempt reading filepath from program parameters.
+				Default: None
 			param_index : int
-				Index of the config filepath in program parameters. (default: 1)
+				Index of the config filepath in program parameters.
+				Default: 1
 			name : str
-				Name of the experiment, used as the prefix of the experiment. If None, attempt reading from loaded config. (default: None)
+				Name of the experiment, used as the prefix of the experiment.
+				If None, attempt reading from loaded config.
+				Default: None
 			root : str
-				Path to the root folder that will contain experiments. If None, attempt reading from loaded config. (default: None)
+				Path to the root folder that will contain experiments.
+				If None, attempt reading from loaded config.
+				Default: None
 			group : bool, optional
-				Group project versions by project name (adds a directory level). If None, attempt reading from loaded config. (default: False)
+				Group project versions by project name (adds a directory level).
+				If None, attempt reading from loaded config.
+				Default: False
 			version : str, optional
-				Append a version string to experiment directory name. If None, attempt reading from loaded config. If False, disable reading from config (use for sub-experiments). (default: None)
+				Append a version string to experiment directory name.
+				If None, attempt reading from loaded config.
+				If False, disable reading from config (use for sub-experiments).
+				Default: None
 			timestamp : bool, optional
-				Add a timestamp to project folder name (rudimentary experiment versioning, protects from overwritting results). If None, attempt reading from loaded config. (default: True)
+				Add a timestamp to project folder name (rudimentary experiment versioning, protects from overwritting results).
+				If None, attempt reading from loaded config.
+				Default: True
 			store_config: bool, optional
-				Save the config file into the experiment folder. (default: True)
+				Save the config file into the experiment folder.
+				Default: True
 			parameters_version: str, optional
 				Store the parameters version into the config to allow downstream versioning.
+				Default: None
 		'''
 		if configfile is None:  # Attempt extracting from program arguments.
 			if len(sys.argv) < param_index+1:
@@ -179,22 +228,31 @@ class Experiment:
 			else:
 				json.dump(config, f, indent='\t')
 
-	def __getitem__(self, k):
+	def __getitem__(self, k : str) -> Any:
+		"""
+			Gets the configuration value at given key.
+		"""
 		return self.config[k]
 
-	def __contains__(self, k):
+	def __contains__(self, k : str) -> bool:
+		"""
+			Checks if configuration file contains given key.
+		"""
 		return k in self.config
 
-	def __call__(self, *args):
+	def __call__(self, *args  : Sequence[str]):
+		"""
+			Construct a path within project from given sequence of arguments.
+		"""
 		return self.path(*args)
 
-	def __str__(self):
+	def __str__(self) -> str:
 		'''
 			Basename of the experiment directory path.
 		'''
 		return os.path.basename(self.dir)
 
-	def new_subexperiment(self, config, name, group=True, version=None, timestamp=True, store_config=True):
+	def new_subexperiment(self, config, name, group=True, version=None, timestamp=True, store_config=True) -> 'Experiment':
 		'''
 			Create a sub-experiment within this one. Used for iterated development over components or over entire projects.
 
@@ -206,23 +264,26 @@ class Experiment:
 		'''
 		return Experiment(config, name=name, root=self.dir, group=group, version=version, timestamp=timestamp, store_config=store_config)
 
-	def list_similar(self):
+	def list_similar(self) -> Sequence[str]:
 		'''
-			Returns a list of experiment from parent directory, starting with the same experiment name.
+			Returns a list of experiment paths from parent directory, starting with the same experiment name.
 		'''
 		parent = os.path.dirname(self.dir)
 		dirs = os.listdir(parent)
 		return list(filter(lambda d: d.startswith(self.name), dirs))
 
-	def get_last_similar(self):
+	def get_last_similar(self) -> str:
 		'''
-			Returns the experiment path withing same parent directory, starting with the same experiment name, but latest version/timestamp.
+			Returns the experiment path within same parent directory, starting with the same experiment name, but latest version/timestamp.
 		'''
 		dirs = self.list_similar()
 		sorted(dirs)
 		return os.path.join(os.path.dirname(self.dir),dirs[-1])
 
-	def pretty_config(self):
+	def pretty_config(self) -> str:
+		"""
+			Constructs a pretty string of the configuraiton dictionary.
+		"""
 		strings = ['Configuration:']
 		def r(d, ss, i=1):
 			offset = '  '*i
@@ -235,10 +296,13 @@ class Experiment:
 		r(self.config, strings)
 		return '\n'.join(strings)
 
-	def exists(self, filename):
+	def exists(self, filename : str) -> bool:
+		"""
+			Checks if given filename exists within the project folder.
+		"""
 		return os.path.exists(self.path(filename))
 
-	def makedirs(self, dir):
+	def makedirs(self, dir : str) -> str:
 		'''
 			Creates the directories for given leaf directory path.
 
@@ -257,10 +321,10 @@ class Experiment:
 		os.makedirs(path, exist_ok=True)
 		return path
 
-	def path(self, *args):
-		'''
-			Join given path elements to the experiment directory path.
-		'''
+	def path(self, *args) -> str:
+		"""
+			Construct a path within project from given sequence of arguments.
+		"""
 		return os.path.join(self.dir, *args)
 
 
@@ -268,6 +332,10 @@ class GridSearch:
 	def __init__(self, parameters, grid):
 		'''
 			Iterator through all combinations of given parameter alternative values.
+			The parameters are set in order of their definition.
+
+			Parameter groups can be defined by wrapping the grouped parameters into a dict, the parameters in a group will all be set in a parameter instance.
+			Previously set parameters are keeped between groups (if a group sets a unique parameter, it is persisted throughout the rest of the groups).
 
 			Parameters
 			----------
