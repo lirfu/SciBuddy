@@ -1,14 +1,16 @@
+from typing import List
+
 class LossTracker:
-	def __init__(self, lower_bound=None, cvg_slope=None, patience=None):
+	def __init__(self, lower_bound: float=None, cvg_slope: float=1e-3, patience: int=1):
 		'''
 			Parameters
 			----------
 			lower_bound: float, optional
 				Lower loss bound, used for detection of target loss. Not used if `None`. Default: `None`
 			cvg_slope: float, optional
-				Relative loss slope (absolute change divided by newer value), used for detection of convergence. Not used if `None`. Default: `None`
+				Relative loss slope (absolute change divided by newer value), used for detection of convergence. Not used if `None`. Default: 1e-3
 			patience: int, optional
-				Number of iterations that forgive detections, used for ignoring noise in the loss curve. Not used if `None`. Default: `None`
+				Number of iterations that forgive detections, used for ignoring noise in the loss curve. Not used if `None`. Default: 1
 		'''
 		self.bound = lower_bound
 		self.slope = cvg_slope
@@ -26,17 +28,17 @@ class LossTracker:
 	def reset_slope_iter(self):
 		self._slope_iter = 0
 
-	def append(self, loss):
+	def append(self, loss: float):
 		'''
 			Sums the given loss to a accumulator. Used in the minibatch loop.
 		'''
-		self.__epoch += loss.item()
+		self.__epoch += loss
 
-	def step_single(self, loss):
+	def step_single(self, loss: float):
 		self.append(loss)
 		self.step_epoch(1)
 
-	def step_epoch(self, dataset_size):
+	def step_epoch(self, dataset_size: int) -> float:
 		'''
 			Averages the accumulated loss with given dataset size and evaluates the relative slope. Used in the epoch loop, after iterating minibatches.
 		'''
@@ -50,19 +52,19 @@ class LossTracker:
 		return l
 
 	@property
-	def losses(self):
+	def losses(self) -> List[float]:
 		'''
 			Recorded losses list.
 		'''
 		return self._losses
 
-	def is_bound(self):
+	def is_bound(self) -> bool:
 		'''
 			Returns True if lower bound is set and the last recorded loss was below or equal to it.
 		'''
 		return self.bound is not None and self._losses[-1] <= self.bound
 
-	def is_converged(self):
+	def is_converged(self) -> bool:
 		'''
 			Returns True if the last recorded relative slope was under the bound for beyond patience number of times.
 		'''
