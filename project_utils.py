@@ -224,9 +224,9 @@ class Experiment:
 			config = self.config
 		with open(self('parameters.yaml'), 'w') as f:
 			if use_yaml:
-				yaml.dump(config, f)
+				yaml.dump(config, f, sort_keys=False)
 			else:
-				json.dump(config, f, indent='\t')
+				json.dump(config, f, indent='\t', sort_keys=False)
 
 	def __getitem__(self, k : str) -> Any:
 		"""
@@ -289,10 +289,10 @@ class Experiment:
 			offset = '  '*i
 			for k,v in d.items():
 				if isinstance(v, dict):
-					ss.append(f'{offset}- {k}:')
+					ss.append(f'{offset}{k}:')
 					r(v, ss, i+1)
 				else:
-					ss.append(f'{offset}- {k}: {v}')
+					ss.append(f'{offset}{k}: {v}')
 		r(self.config, strings)
 		return '\n'.join(strings)
 
