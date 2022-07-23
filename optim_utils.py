@@ -1,4 +1,9 @@
+import os
 from typing import List
+
+import numpy as np
+import torch
+
 
 class LossTracker:
 	def __init__(self, lower_bound: float=None, cvg_slope: float=1e-3, patience: int=1):
@@ -23,6 +28,7 @@ class LossTracker:
 		'''
 		self.__epoch = 0
 		self._losses = []
+		self.__min_loss = float('inf')
 		self._slope_iter = 0
 
 	def reset_slope_iter(self):
@@ -43,12 +49,13 @@ class LossTracker:
 			Averages the accumulated loss with given dataset size and evaluates the relative slope. Used in the epoch loop, after iterating minibatches.
 		'''
 		l = self.__epoch / dataset_size
-		self._losses.append(l)
 		self.__epoch = 0
-		if len(self._losses) > 1 and (self._losses[-2]-self._losses[-1])/self._losses[-1] < self.slope:  # Relative difference (slope).
+		self._losses.append(l)
+		if (l-self.__min_loss)/(l+1e-12) > -self.slope:  # Relative difference (slope).
 			self._slope_iter += 1
 		else:
 			self._slope_iter = 0
+		self.__min_loss = min(self.__min_loss, l)
 		return l
 
 	@property
@@ -58,14 +65,44 @@ class LossTracker:
 		'''
 		return self._losses
 
+	@property
 	def is_bound(self) -> bool:
 		'''
 			Returns True if lower bound is set and the last recorded loss was below or equal to it.
 		'''
 		return self.bound is not None and self._losses[-1] <= self.bound
 
+	@property
 	def is_converged(self) -> bool:
 		'''
 			Returns True if the last recorded relative slope was under the bound for beyond patience number of times.
 		'''
 		return self._slope_iter > self.patience
+
+
+class CheckpointSaver:
+	'''
+		Utility class for saving N best model weights and loading best.
+		The intermediate weights files are deleted when obsolete.
+	'''
+	def __init__(self, path, N=3):
+		self.__path = path
+		self.__losses = np.full(N, float('inf'))
+		self.__models = [None,]*N
+
+	def __call__(self, dictionary: dict, loss: float, name: str):
+		if (self.__losses >= loss).any():  # Overwrite the worst parameters.
+			i = self.__losses.argmax()
+			self.__losses[i] = loss
+			if self.__models[i] is not None:
+				os.remove(self.__models[i])
+			fp = os.path.join(self.__path, name)
+			torch.save(dictionary, fp)
+			self.__models[i] = fp
+
+	def save(self, dictionary, loss):
+		self(dictionary, loss)
+
+	def load_best(self):
+		fp = self.__models[self.__losses.argmin()]
+		return torch.load(fp)
