@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import copy
 import math
 import json
 import glob
@@ -23,7 +24,7 @@ class GifMaker:
 	"""
 	def __init__(self, ex: 'Experiment', name: str):
 		self.index = 1
-		self.folder = ex.makedir(ex.path(name))
+		self.folder = ex.makedirs(name)
 		self.name = name
 		self.ex = ex
 		self.clear()
@@ -327,7 +328,7 @@ class GridSearch:
 		elif isinstance(parameters, dict):
 			self.parameters = parameters
 		else:
-			raise RuntimeError('Unrecognized grid type: ' + str(type(grid)))
+			raise RuntimeError('Unrecognized parameters type: ' + str(type(parameters)))
 
 		if isinstance(grid, str):
 			self.grid = load_configfile(grid)
@@ -342,7 +343,6 @@ class GridSearch:
 		return math.prod(self.__lengths.values())
 
 	def __iter__(self):
-		self.__i = -1
 		self.__idx = {k: 0 for k in self.grid.keys()}
 		self.__idx[list(self.grid.keys())[0]] = -1  # Initial condition.
 		return self
@@ -361,13 +361,14 @@ class GridSearch:
 			raise StopIteration
 
 		# Update current parameter values.
+		parameters = copy.deepcopy(self.parameters)  # For parameter groups that don't define a parameter, the original is used.
 		for k in self.grid.keys():
 			v = self.grid[k][self.__idx[k]]
 			if isinstance(v, dict):  # For parameter groups (parameters that must be used jointly).
 				for kk, vv in v.items():
-					self.parameters[kk] = vv
+					parameters[kk] = vv
 			else:  # For standalone parameters.
-				self.parameters[k] = self.grid[k][self.__idx[k]]
+				parameters[k] = self.grid[k][self.__idx[k]]
 
-		self.__i += 1
-		return self.parameters, self.__i
+		return parameters
+

@@ -130,13 +130,35 @@ class ImageCat:
 	def __init__(self):
 		self._images = []
 
-	def __call__(self, img):
+	def __call__(self, img: torch.Tensor) -> None:
 		self._images.append(img.detach().cpu())
 
-	def generate(self, dim=2):
+	def generate(self, dim: int=2) -> torch.Tensor:
 		if len(self._images) == 0:
 			return torch.tensor([[0]])
 		return torch.cat(self._images, dim=dim)
+
+class ImageGridCat:
+	"""
+		Utility for concatenating images in a grid of specified shape. Expects images of shape (C,H,W)
+	"""
+	def __init__(self, shape):
+		self.h_cat = ImageCat()
+		self.v_cat = ImageCat()
+		self.__index = 0
+		self.shape = shape
+
+	def __call__(self, img: torch.Tensor) -> None:
+		self.h_cat(img)
+		self.__index += 1
+		if self.__index == self.shape[1]:
+			self.__index = 0
+			self.v_cat(self.h_cat.generate(2))
+			self.h_cat = ImageCat()
+
+	def generate(self) -> torch.Tensor:
+		return self.v_cat.generate(1)
+
 
 ### DATA LOADING ###
 
