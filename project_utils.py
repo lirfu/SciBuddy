@@ -362,13 +362,16 @@ class GridSearch:
 
 		# Update current parameter values.
 		parameters = copy.deepcopy(self.parameters)  # For parameter groups that don't define a parameter, the original is used.
+		changes = {}
 		for k in self.grid.keys():
 			v = self.grid[k][self.__idx[k]]
 			if isinstance(v, dict):  # For parameter groups (parameters that must be used jointly).
 				for kk, vv in v.items():
 					parameters[kk] = vv
+					changes[kk] = vv
 			else:  # For standalone parameters.
-				parameters[k] = self.grid[k][self.__idx[k]]
+				parameters[k] = v
+				changes[k] = v
 
-		return parameters
+		return parameters, changes
 
