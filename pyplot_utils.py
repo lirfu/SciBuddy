@@ -1,3 +1,4 @@
+from functools import partial
 import os
 import math
 
@@ -57,6 +58,24 @@ def draw_loss_curve(losses, label=None, xlabel='Iterations', ylabel='Loss'):
 	plt.xlabel(xlabel)
 	plt.ylabel(ylabel)
 	plt.grid(True)
+
+def draw_top_model_epochs(m_epochs, m_losses, name='Top models'):
+	min_loss = min(m_losses)
+	m_epochs = [e for e,l in sorted(zip(m_epochs, m_losses), key=lambda v: v[1])]
+	cm = plt.get_cmap('winter')
+	c = [cm(e) for e in np.linspace(0., 1., len(m_epochs))]  # Proportional to loss value.
+	plt.scatter(m_epochs, [min_loss,]*len(m_epochs), marker='+', c=c, label=name)
+
+def draw_curves(x, *curves, names=None, xlabel=None, ylabel=None, grid=True):
+	for i,c in enumerate(curves):
+		plt.plot(x, c, label=names[i] if names is not None else None)
+	if names is not None:
+		plt.legend()
+	if xlabel is not None:
+		plt.xlabel(xlabel)
+	if ylabel is not None:
+		plt.ylabel(ylabel)
+	plt.grid(grid)
 
 def draw_class_distribution(features, labels, colormap='hsv', marker='.', sizes=20, legend=True):
 	'''
@@ -137,6 +156,9 @@ def resolve_grid_shape(N, aspect=1, force_rows=None):
 	return W, H
 
 def mask_image(img, mask, color=[0,1,0], alpha=0.5):
+	"""
+		Takes HWC numpy or CHW torch mask array and returns image masked in HWC format.
+	"""
 	if isinstance(mask, np.ndarray):
 		mask = mask.squeeze()[..., None] * alpha
 		color = np.array(color).reshape(1,1,3)

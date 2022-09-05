@@ -87,13 +87,13 @@ class CheckpointSaver:
 	'''
 	def __init__(self, path, N=3):
 		self.__path = path
-		self.__losses = np.full(N, float('inf'))
+		self.losses = np.full(N, float('inf'))
 		self.models = [None,]*N
 
 	def __call__(self, dictionary: dict, loss: float, name: str):
-		if (self.__losses >= loss).any():  # Overwrite the worst parameters.
-			i = self.__losses.argmax()
-			self.__losses[i] = loss
+		if (self.losses >= loss).any():  # Overwrite the worst parameters.
+			i = self.losses.argmax()
+			self.losses[i] = loss
 			if self.models[i] is not None:
 				os.remove(self.models[i])
 			fp = os.path.join(self.__path, name)
@@ -104,5 +104,5 @@ class CheckpointSaver:
 		self(dictionary, loss)
 
 	def load_best(self):
-		fp = self.models[self.__losses.argmin()]
-		return torch.load(fp)
+		fp = self.models[self.losses.argmin()]
+		return torch.load(fp), fp
