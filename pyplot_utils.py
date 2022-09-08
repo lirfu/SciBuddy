@@ -60,11 +60,11 @@ def draw_loss_curve(losses, label=None, xlabel='Iterations', ylabel='Loss'):
 	plt.grid(True)
 
 def draw_top_model_epochs(m_epochs, m_losses, name='Top models'):
-	min_loss = min(m_losses)
-	m_epochs = [e for e,l in sorted(zip(m_epochs, m_losses), key=lambda v: v[1])]
+	data = sorted(zip(m_epochs, m_losses), key=lambda v: v[1])
+	m_epochs = [e for e,_ in data]
 	cm = plt.get_cmap('winter')
 	c = [cm(e) for e in np.linspace(0., 1., len(m_epochs))]  # Proportional to loss value.
-	plt.scatter(m_epochs, [min_loss,]*len(m_epochs), marker='+', c=c, label=name)
+	plt.scatter(m_epochs, [l for _,l in data], marker='o', c=c, label=name)
 
 def draw_curves(x, *curves, names=None, xlabel=None, ylabel=None, grid=True):
 	for i,c in enumerate(curves):
