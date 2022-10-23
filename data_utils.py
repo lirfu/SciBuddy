@@ -131,7 +131,7 @@ class ImageCat:
 		self._images = []
 
 	def __call__(self, img: torch.Tensor) -> None:
-		self._images.append(img.detach().cpu())
+		self._images.append(img)
 
 	def generate(self, dim: int=2) -> torch.Tensor:
 		if len(self._images) == 0:
