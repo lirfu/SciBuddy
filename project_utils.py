@@ -61,7 +61,7 @@ class GifMaker:
 				If `0`, loops indefinitely.
 				Default: 0
 		'''
-		l = [Image.open(f).convert('P') for f in sorted(glob.glob(os.path.join(self.folder,'img_*.png')))]
+		l = [Image.open(f).convert('RGB', dither=Image.Dither.NONE) for f in sorted(glob.glob(os.path.join(self.folder,'img_*.png')))]
 		if len(l) == 0:
 			LOG.e(f'No images found to generate {self.name}.gif!')
 			return
@@ -70,7 +70,8 @@ class GifMaker:
 			duration = int(duration_sec*1000/(self.index-1))
 		else:  # Convert per-frame to millicsconds.
 			duration = [int(d*1000) for d in duration_sec]
-		img.save(fp=self.ex.path(self.name+'.gif'), format='GIF', append_images=imgs, save_all=True, duration=duration, loop=loop, palette='RGB', interlace=False, optimize=False, include_color_table=True)
+			print(self.name, imgs, )
+		img.save(fp=self.ex.path(self.name+'.gif'), format='GIF', append_images=imgs, save_all=True, duration=duration, loop=loop, interlace=False, optimize=False)
 
 	def clear(self):
 		self.index = 1
