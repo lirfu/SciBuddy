@@ -309,7 +309,7 @@ class Experiment:
 
 
 class GridSearch:
-	def __init__(self, parameters, grid):
+	def __init__(self, parameters: dict, grid: dict, skip_indices: int=0):
 		'''
 			Iterator through all combinations of given parameter alternative values.
 			The parameters are set in order of their definition.
@@ -339,27 +339,31 @@ class GridSearch:
 			raise RuntimeError('Unrecognized grid type: ' + str(type(grid)))
 
 		self.__lengths = {k: len(self.grid[k]) for k in self.grid.keys()}
+		self.__skip_indices = skip_indices
 
 	def __len__(self):
 		return math.prod(self.__lengths.values())
 
 	def __iter__(self):
+		self.i = -1
 		self.__idx = {k: 0 for k in self.grid.keys()}
 		self.__idx[list(self.grid.keys())[0]] = -1  # Initial condition.
 		return self
 
 	def __next__(self):
-		# Update indices.
-		t = True
-		for k in self.__idx.keys():
-			self.__idx[k] += 1
-			if self.__idx[k] == self.__lengths[k]:
-				self.__idx[k] = 0
-				continue
-			t = False
-			break
-		if t:
-			raise StopIteration
+		for _ in range(max(1, self.__skip_indices - self.i)):
+			self.i += 1
+			# Update indices.
+			t = True
+			for k in self.__idx.keys():
+				self.__idx[k] += 1
+				if self.__idx[k] == self.__lengths[k]:
+					self.__idx[k] = 0
+					continue
+				t = False
+				break
+			if t:
+				raise StopIteration
 
 		# Update current parameter values.
 		parameters = copy.deepcopy(self.parameters)  # For parameter groups that don't define a parameter, the original is used.
