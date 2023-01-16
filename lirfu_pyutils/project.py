@@ -15,7 +15,7 @@ import torch
 from torchvision import transforms
 import yaml
 
-from .logging_utils import LOG
+from .logging import LOG
 
 
 class GifMaker:
@@ -323,6 +323,8 @@ class GridSearch:
 				A dictionary containing all parameters with default values. If string, it is treated as a filepath of the JSON or YAML config file.
 			grid: {str, dict}
 				A dictionary containing lists of possible values for each of the given parameters. If string, it is treated as a filepath of the JSON or YAML config file.
+			skip_indices: int
+				Number of iterations to skip (used when continuing work when one experiment died and stopped the loop).
 		'''
 		if isinstance(parameters, str):
 			self.parameters = load_configfile(parameters)

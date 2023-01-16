@@ -1,7 +1,7 @@
 import cv2
 import torch
 
-from .data_utils import torch_float_to_torch_uint8
+from .data import torch_float_to_torch_uint8
 
 class ComputerCamera:
 	def __init__(self, idx=0):

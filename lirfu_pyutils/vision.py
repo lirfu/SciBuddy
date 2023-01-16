@@ -5,7 +5,7 @@ import torch
 import torchvision
 from tqdm import tqdm
 
-from .data_utils import rb_to_rgb, chw_to_hwc
+from .data import rb_to_rgb, chw_to_hwc
 
 class ConvolutionKernel(torch.nn.Module):
 	"""
@@ -443,7 +443,7 @@ class CumulativeImageGhosting:
 if __name__ == '__main__':
 	torch.manual_seed(42)
 	# Display kernel functions.
-	from pyplot_utils import show_images
+	from lirfu_pyutils.lirfu_pyutils.pyplot import show_images
 	size = 16
 	kernels = {
 		'Identity': IdentityKernel(),

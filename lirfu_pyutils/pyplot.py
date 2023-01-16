@@ -200,7 +200,7 @@ class PlotImageGridContext:
 		self.W, self.H = resolve_grid_shape(self.N, self.aspect, self.force_rows)
 		return self
 
-	def add_image(self, img, name=None, fontsize=4, **kwargs):
+	def add_image(self, img, name=None, fontsize=16, **kwargs):
 		if img is not None:
 			if not self.quiet and (isinstance(img, np.ndarray) or isinstance(img, torch.Tensor)):
 				if name is None:
@@ -244,15 +244,14 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 				n = None
 			pc.add_image(img, n, **kwargs)
 
-
-def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01):
+def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01, markersize=2):
 	C = 1
 	if len(p.shape) >= 1:
 		C = p.shape[1]
 	if class_names is None:
 		class_names = [f'Class {c+1}' for c in range(C)]
 	for c, name in enumerate(class_names):
-		plt.step(r[:,c], p[:,c], where='post', marker='o', markersize=2, label=name)
+		plt.step(r[:,c], p[:,c], where='post', marker='o', markersize=markersize, label=name)
 		plt.xlabel('Recall')
 		plt.ylabel('Precision')
 	plt.legend()
