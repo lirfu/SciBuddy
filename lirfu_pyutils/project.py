@@ -193,20 +193,23 @@ class Experiment:
 
 	def store_config(self, config=None, use_yaml=True):
 		"""
-			Store experiment config dict.
+			Store experiment config dict into `root/parameters.yaml` (or `.json`).
 
 			Parameters
 			----------
 			config: dict, optional
 				Configuration dict to explicitly store (if different than experiment's). If None, store experiment's config. Default: None
+			use_yaml: bool, optional
+				Store as YAML. Otherwise, stored as json. Default: True
 		"""
 		if config is None:
 			config = self.config
-		with open(self('parameters.yaml'), 'w') as f:
 			if use_yaml:
-				yaml.dump(config, f, sort_keys=False)
+				with open(self('parameters.yaml'), 'w') as f:
+					yaml.dump(config, f, sort_keys=False)
 			else:
-				json.dump(config, f, indent='\t', sort_keys=False)
+				with open(self('parameters.json'), 'w') as f:
+					json.dump(config, f, indent='\t', sort_keys=False)
 
 	def __getitem__(self, k : str) -> Any:
 		"""
