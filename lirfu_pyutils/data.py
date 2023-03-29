@@ -92,6 +92,8 @@ def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, num
 	if not os.path.exists(filepath):
 		raise RuntimeError('Image file not found:', filepath)
 	img = Image.open(filepath)
+	if img.mode == 'P':  # Pallete mode should be converted to RGBA, otherwise defaults to grayscale.
+		img = img.convert('RGBA')
 	if convert is not None:
 		img = img.convert(convert)
 	if shape is not None:
