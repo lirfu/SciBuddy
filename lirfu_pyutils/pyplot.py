@@ -155,18 +155,25 @@ def resolve_grid_shape(N, aspect=1, force_rows=None):
 		H = 1
 	return W, H
 
-def mask_image(img, mask, color=[0,1,0], alpha=0.5):
+def mask_image(img, mask, color=[1,0,0], alpha=0.5):
 	"""
-		Takes HWC numpy or CHW torch mask array and returns image masked in HWC format.
+		Takes HWC numpy or CHW torch image and a HW binary mask and returns their lerp in HWC format.
 	"""
 	if isinstance(mask, np.ndarray):
-		mask = mask.squeeze()[..., None] * alpha
 		color = np.array(color).reshape(1,1,3)
+		if len(img.shape) == 2:
+			img = img[..., None]
+		mask = mask.squeeze()[..., None]
 	elif isinstance(mask, torch.Tensor):
-		mask = mask.squeeze().unsqueeze(2) * alpha
 		color = torch.tensor(color).reshape(1,1,3)
+		if len(img.shape) == 2:
+			img = img.unsqueeze(2)
+		# else:
+		# 	img = img.permute(1,2,0)
+		mask = mask.squeeze().unsqueeze(2)
 	else:
 		RuntimeError('Unknown mask type:', type(mask))
+	mask = mask * alpha
 	return (1-mask) * img + mask * color
 
 def plt_set_fullscreen():
