@@ -1,6 +1,7 @@
 from functools import partial
 import os
 import math
+from typing import List
 
 import numpy as np
 import torch
@@ -47,23 +48,28 @@ class PlotContext:
 		if self.clear:
 			PlotContext.clear()
 
-def draw_loss_curve(losses, label=None, xlabel='Iterations', ylabel='Loss'):
+def sample_cmap(cmap:str, N:int):
+	'''
+		Returns a list of RGB colors uniformly sampled from colormap using N samples.
+	'''
+	cm = plt.get_cmap(cmap)
+	return [cm(e) for e in np.linspace(0., 1., N)]
+
+def draw_loss_curve(losses:List[float], epochs:List[int]=None, label:str=None, xlabel:str='Iterations', ylabel:str='Loss', **kwargs):
 	'''
 		Plot the loss curve from an array of losses. Shows the grid.
 	'''
-	if len(losses[0]) == 1:
-		plt.plot(losses, label=label)
-	else:
-		plt.plot([l[0] for l in losses], [l[1] for l in losses], label=label)
+	if epochs is None:
+		epochs = list(range(len(losses)))
+	plt.plot(epochs, losses, label=label, **kwargs)
 	plt.xlabel(xlabel)
 	plt.ylabel(ylabel)
 	plt.grid(True)
 
-def draw_top_model_epochs(m_epochs, m_losses, name='Top models'):
+def draw_top_model_epochs(m_epochs, m_losses, name='Top models', cmap='winter'):
 	data = sorted(zip(m_epochs, m_losses), key=lambda v: v[1])
 	m_epochs = [e for e,_ in data]
-	cm = plt.get_cmap('winter')
-	c = [cm(e) for e in np.linspace(0., 1., len(m_epochs))]  # Proportional to loss value.
+	c = sample_cmap(cmap, len(m_epochs))
 	plt.scatter(m_epochs, [l for _,l in data], marker='o', c=c, label=name)
 
 def draw_curves(x, *curves, names=None, xlabel=None, ylabel=None, grid=True):
