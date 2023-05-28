@@ -105,4 +105,6 @@ class CheckpointSaver:
 
 	def load_best(self):
 		fp = self.models[self.losses.argmin()]
+		if fp is None:
+			return None, None
 		return torch.load(fp), fp
