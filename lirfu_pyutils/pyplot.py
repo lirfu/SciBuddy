@@ -1,11 +1,13 @@
 from functools import partial
 import os
 import math
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+
+from .tools import get_unique_color_from_hsv
 
 
 class PlotContext:
@@ -161,26 +163,45 @@ def resolve_grid_shape(N, aspect=1, force_rows=None):
 		H = 1
 	return W, H
 
-def mask_image(img, mask, color=[1,0,0], alpha=0.5):
+def mask_to_rgb(mask:np.ndarray, color:list) -> np.ndarray:
 	"""
-		Takes HWC numpy or CHW torch image and a HW binary mask and returns their lerp in HWC format.
+		Take a segmentation mask and convert it to RGB image.
 	"""
+	if len(mask.shape) == 2:
+		mask = mask[..., None]
+	if mask.shape[2] == 1:
+		return mask.repeat(3, axis=2) * np.array(color).reshape(1,1,3) / 255.
+	else:
+		mask_img = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.float32)
+		int_mask = np.argmax(mask, axis=2)
+		for c in range(1,mask.shape[2]):
+			col = np.array(get_unique_color_from_hsv(c, mask.shape[2]-1)) / 255.
+			mask_img[int_mask == c] = col
+		return mask_img
+
+def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.Tensor], color:List[float]=[1,0,0], alpha:float=0.5) -> np.ndarray:
+	"""
+		Takes HWC numpy or CHW torch image and a same mask and returns their lerp in HWC format.
+	"""
+	if isinstance(img, torch.Tensor):
+		if img.shape[0] == 1:
+			img = img.permute(1,2,0)
+		img = img.numpy()
+	else:
+		RuntimeError('Unknown img type:', type(img))
+	if len(img.shape) == 2:
+		img = img[..., None]
+	if img.shape[2] == 1:
+		img = img.repeat(3, axis=2)
+
 	if isinstance(mask, np.ndarray):
-		color = np.array(color).reshape(1,1,3)
-		if len(img.shape) == 2:
-			img = img[..., None]
-		mask = mask.squeeze()[..., None]
+		mask = mask_to_rgb(mask, np.array(color).reshape(1,1,3))
 	elif isinstance(mask, torch.Tensor):
-		color = torch.tensor(color).reshape(1,1,3)
-		if len(img.shape) == 2:
-			img = img.unsqueeze(2)
-		# else:
-		# 	img = img.permute(1,2,0)
-		mask = mask.squeeze().unsqueeze(2)
+		mask = mask_to_rgb(mask.permute(1,2,0).numpy(), color)
 	else:
 		RuntimeError('Unknown mask type:', type(mask))
-	mask = mask * alpha
-	return (1-mask) * img + mask * color
+
+	return alpha * mask + (1-alpha) * img
 
 def plt_set_fullscreen():
 	backend = str(plt.get_backend())
