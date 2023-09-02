@@ -2,6 +2,8 @@ from time import perf_counter
 from os import getpid
 from psutil import Process
 import gc
+import colorsys
+from typing import List
 
 def arr_stats(a):
 	return f'Range {(a.min(), a.max())} with shape {a.shape} and type {a.dtype}'
@@ -113,3 +115,24 @@ class MemoryMeasure:
 
 	def lap_quiet(self):
 		return Process(getpid()).memory_info().rss - self.__lap
+
+def get_unique_color_from_hsv(i:int, N:int) -> List[int]:
+	"""
+		Generate a unique HSV color for index i out of N, and convert it to RGB.
+	"""
+	if N > 255:
+		raise RuntimeError('Supporting only 255 unique colors!')
+	color = colorsys.hsv_to_rgb(i/N, 1, 1)  # NOTE: Dividing by L because color for hue 0 and 1 are the same!
+	return [int(color[0]*255.99), int(color[1]*255.99), int(color[2]*255.99)]
+
+def hex_to_rgb(v:str) -> List[int]:
+	"""
+		Converts a hex RGB string to a list of integers.
+	"""
+	return [int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16)]
+
+def rgb_to_hex(color:List[int]) -> str:
+	"""
+		Converts a list of integers to a hex RGB string.
+	"""
+	return '%0.2X'%color[0] + '%0.2X'%color[1] + '%0.2X'%color[2]
