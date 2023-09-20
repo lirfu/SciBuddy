@@ -170,14 +170,14 @@ def mask_to_rgb(mask:np.ndarray, color:list) -> np.ndarray:
 	if len(mask.shape) == 2:
 		mask = mask[..., None]
 	if mask.shape[2] == 1:
-		return mask.repeat(3, axis=2) * np.array(color).reshape(1,1,3) / 255.
-	else:
-		mask_img = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.float32)
-		int_mask = np.argmax(mask, axis=2)
-		for c in range(1,mask.shape[2]):
-			col = np.array(get_unique_color_from_hsv(c, mask.shape[2]-1)) / 255.
-			mask_img[int_mask == c] = col
-		return mask_img
+		return mask.repeat(3, axis=2) * np.array(color).reshape(1,1,3).astype(np.float32)
+	# else:
+	# 	mask_img = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.float32)
+	# 	int_mask = np.argmax(mask, axis=2)
+	# 	for c in range(1,mask.shape[2]):
+	# 		col = np.array(get_unique_color_from_hsv(c, mask.shape[2]-1)) / 255.
+	# 		mask_img[int_mask == c] = col
+	# 	return mask_img
 
 def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.Tensor], color:List[float]=[1,0,0], alpha:float=0.5) -> np.ndarray:
 	"""
@@ -197,11 +197,12 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 	if isinstance(mask, np.ndarray):
 		mask = mask_to_rgb(mask, np.array(color).reshape(1,1,3))
 	elif isinstance(mask, torch.Tensor):
-		mask = mask_to_rgb(mask.permute(1,2,0).numpy(), color)
+		mask = mask_to_rgb(mask.numpy(), np.array(color).reshape(1,1,3))
 	else:
 		RuntimeError('Unknown mask type:', type(mask))
-
-	return alpha * mask + (1-alpha) * img
+	# return alpha * mask + (1-alpha) * img
+	mask *= alpha
+	return (1-mask) * img + mask * color
 
 def plt_set_fullscreen():
 	backend = str(plt.get_backend())
