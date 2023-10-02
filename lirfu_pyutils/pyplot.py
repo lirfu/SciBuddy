@@ -1,11 +1,13 @@
 from functools import partial
 import os
 import math
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+
+from .tools import get_unique_color_from_hsv
 
 
 class PlotContext:
@@ -161,25 +163,46 @@ def resolve_grid_shape(N, aspect=1, force_rows=None):
 		H = 1
 	return W, H
 
-def mask_image(img, mask, color=[1,0,0], alpha=0.5):
+def mask_to_rgb(mask:np.ndarray, color:list) -> np.ndarray:
 	"""
-		Takes HWC numpy or CHW torch image and a HW binary mask and returns their lerp in HWC format.
+		Take a segmentation mask and convert it to RGB image.
 	"""
+	if len(mask.shape) == 2:
+		mask = mask[..., None]
+	if mask.shape[2] == 1:
+		return mask.repeat(3, axis=2) * np.array(color).reshape(1,1,3).astype(np.float32)
+	return mask
+	# else:
+	# 	mask_img = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.float32)
+	# 	int_mask = np.argmax(mask, axis=2)
+	# 	for c in range(1,mask.shape[2]):
+	# 		col = np.array(get_unique_color_from_hsv(c, mask.shape[2]-1)) / 255.
+	# 		mask_img[int_mask == c] = col
+	# 	return mask_img
+
+def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.Tensor], color:List[float]=[1,0,0], alpha:float=0.5) -> np.ndarray:
+	"""
+		Takes HWC numpy or CHW torch image and a same mask and returns their lerp in HWC format.
+	"""
+	if isinstance(img, torch.Tensor):
+		if img.shape[0] == 1:
+			img = img.permute(1,2,0)
+		img = img.numpy()
+	else:
+		RuntimeError('Unknown img type:', type(img))
+	if len(img.shape) == 2:
+		img = img[..., None]
+	if img.shape[2] == 1:
+		img = img.repeat(3, axis=2)
+
 	if isinstance(mask, np.ndarray):
-		color = np.array(color).reshape(1,1,3)
-		if len(img.shape) == 2:
-			img = img[..., None]
-		mask = mask.squeeze()[..., None]
+		mask = mask_to_rgb(mask, np.array(color).reshape(1,1,3))
 	elif isinstance(mask, torch.Tensor):
-		color = torch.tensor(color).reshape(1,1,3)
-		if len(img.shape) == 2:
-			img = img.unsqueeze(2)
-		# else:
-		# 	img = img.permute(1,2,0)
-		mask = mask.squeeze().unsqueeze(2)
+		mask = mask_to_rgb(mask.numpy(), np.array(color).reshape(1,1,3))
 	else:
 		RuntimeError('Unknown mask type:', type(mask))
-	mask = mask * alpha
+	# return alpha * mask + (1-alpha) * img
+	mask *= alpha
 	return (1-mask) * img + mask * color
 
 def plt_set_fullscreen():
@@ -257,17 +280,25 @@ def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorb
 				n = None
 			pc.add_image(img, n, **kwargs)
 
-def draw_precision_recall_curve(p, r, class_names=None, title=None, grid=True, padding=0.01, markersize=2):
-	C = 1
-	if len(p.shape) >= 1:
-		C = p.shape[1]
+def draw_summarization_curves(x, y, x_label='', y_label='', chosen=None, original_points=None, class_names=None, title=None, grid=True, padding=0.01, markersize=2):
+	assert len(x) == len(y), f'Lengths should match, but got: X={len(x)} and Y={len(y)}'
+	# Generate class names.
+	C = len(x)
 	if class_names is None:
 		class_names = [f'Class {c+1}' for c in range(C)]
+	# Draw plots per-class.
 	for c, name in enumerate(class_names):
-		plt.step(r[:,c], p[:,c], where='post', marker='o', markersize=markersize, label=name)
-		plt.xlabel('Recall')
-		plt.ylabel('Precision')
+		x_c, y_c = x[c], y[c]
+		plt.step(x_c, y_c, where='post', marker='o', markersize=markersize, label=name)  # Step plot.
+		if original_points is not None:
+			print(original_points[0][:,c].shape)
+			plt.scatter(original_points[0][:,c], original_points[1][:,c], marker='.', s=markersize/4)  # Locations for all thresholds.
+		if chosen is not None:
+			plt.scatter(chosen[0][c], chosen[1][c], marker='o', c='red')  # Best threshold.
+		plt.xlabel(x_label)
+		plt.ylabel(y_label)
 	plt.legend()
+	plt.gca().set_aspect(1)
 	plt.grid(grid)
 	plt.xlim(-padding,1+padding)
 	plt.ylim(-padding,1+padding)

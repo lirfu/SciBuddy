@@ -129,7 +129,7 @@ class Experiment:
 				If None, attempt reading from loaded config.
 				Default: None
 			group : bool, optional
-				Group project versions by project name (adds a directory level).
+				Group experiment versions by experiment name (adds a directory level).
 				If None, attempt reading from loaded config.
 				Default: False
 			version : str, optional
@@ -138,7 +138,7 @@ class Experiment:
 				If False, disable reading from config (use for sub-experiments).
 				Default: None
 			timestamp : bool, optional
-				Add a timestamp to project folder name (rudimentary experiment versioning, protects from overwritting results).
+				Add a timestamp to experiment folder name (rudimentary experiment versioning, protects from overwritting results).
 				If None, attempt reading from loaded config.
 				Default: True
 			store_config: bool, optional
@@ -225,7 +225,7 @@ class Experiment:
 
 	def __call__(self, *args  : Sequence[str]):
 		"""
-			Construct a path within project from given sequence of arguments.
+			Construct a path within experiment from given sequence of arguments.
 		"""
 		return self.path(*args)
 
@@ -237,12 +237,12 @@ class Experiment:
 
 	def new_subexperiment(self, config, name, group=True, version=None, timestamp=True, store_config=True) -> 'Experiment':
 		'''
-			Create a sub-experiment within this one. Used for iterated development over components or over entire projects.
+			Create a sub-experiment within this one. Used for iterated development over components or over entire experiments.
 
 			For component-wise iteration, use parameters `group=True` and `timestamp=True`.
 			This is by default.
 
-			For project-wise iteration, use parameters `group=False` and `timestamp=False`.
+			For experiment-wise iteration, use parameters `group=False` and `timestamp=False`.
 
 		'''
 		return Experiment(config, name=name, root=self.dir, group=group, version=version, timestamp=timestamp, store_config=store_config)
@@ -281,32 +281,53 @@ class Experiment:
 
 	def exists(self, filename : str) -> bool:
 		"""
-			Checks if given filename exists within the project folder.
+			Checks if given filename exists within the experiment folder.
 		"""
 		return os.path.exists(self.path(filename))
 
 	def makedirs(self, dir : str) -> str:
 		'''
 			Creates the directories for given leaf directory path.
+			Appends directories to the experiment folder.
 
 			Parameters
 			----------
 
 			dir : str
-				Path to target file.
+				Path to target directory.
 
 			Returns
 			----------
 			dir : str
-				File path concatenated to experiment root.
+				File path appended to experiment root.
 		'''
 		path = self.path(dir)
 		os.makedirs(path, exist_ok=True)
 		return path
 
+	def prepare_path(self, *path) -> str:
+		'''
+			Creates the predating directories supporting the given leaf file (create all of the directories except the last file/folder).
+
+			Parameters
+			----------
+
+			path : args[str]
+				Path to target file.
+
+			Returns
+			----------
+			path : str
+				Original path appended to experiment root.
+		'''
+		path = self.path(os.path.join(*path))
+		dir = os.path.dirname(path)
+		os.makedirs(dir, exist_ok=True)
+		return path
+
 	def path(self, *args) -> str:
 		"""
-			Construct a path within project from given sequence of arguments.
+			Construct a path within experiment from given sequence of arguments.
 		"""
 		return os.path.join(self.dir, *args)
 
