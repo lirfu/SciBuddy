@@ -8,13 +8,9 @@ setup_info = dict(
     author='Juraj Fulir',
     author_email='jurajfulir@gmail.com',
     url='https://github.com/lirfu/lirfu_pyutils',
-    description='lirfu_pyutils',
+    description='A Python toolkit of common utils.',
     long_description='lirfu_pyutils contains a bunch of tools used for configurable experiment tracking, advanced logging, elegant data loading and plotting and much more.',
     license='MIT',
-
-    # Package info
-    packages=find_packages(exclude=('test',)),
-
     zip_safe=True,
 
 	install_requires=[

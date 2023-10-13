@@ -3,6 +3,7 @@ from os import getpid
 from psutil import Process
 import gc
 import colorsys
+import signal
 from typing import List
 
 def arr_stats(a):
@@ -115,6 +116,31 @@ class MemoryMeasure:
 
 	def lap_quiet(self):
 		return Process(getpid()).memory_info().rss - self.__lap
+
+class SignalCatcher:
+	_CTR = 0
+	_SIGNALS = {}
+
+	def __init__(self, sig:signal.Signals=signal.SIGINT):
+		SignalCatcher._CTR += 1
+		self._idx = str(SignalCatcher._CTR)
+		SignalCatcher._SIGNALS[self._idx]= False
+		signal.signal(sig, self.__catch)
+
+	def __del__(self):
+		SignalCatcher._SIGNALS.pop(self._idx)
+
+	@staticmethod
+	def __catch(signum, frame):
+		for k in SignalCatcher._SIGNALS.keys():
+			SignalCatcher._SIGNALS[k] = True
+
+	def caught(self) -> bool:
+		"""
+			Returns `True` only if the signal was recorded after object initialization.
+		"""
+		return SignalCatcher._SIGNALS[self._idx]
+
 
 def get_unique_color_from_hsv(i:int, N:int) -> List[int]:
 	"""
