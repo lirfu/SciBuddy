@@ -4,7 +4,7 @@ from psutil import Process
 import gc
 import colorsys
 import signal
-from typing import List
+from typing import List, Dict, Callable
 
 def arr_stats(a):
 	return f'Range {(a.min(), a.max())} with shape {a.shape} and type {a.dtype}'
@@ -118,28 +118,54 @@ class MemoryMeasure:
 		return Process(getpid()).memory_info().rss - self.__lap
 
 class SignalCatcher:
-	_CTR = 0
-	_SIGNALS = {}
+	"""
+		Catches a signal and sets the internal flag for it so user can check it (usually in a loop of something).
+
+		The signal is caught only once, unless the catcher is reset.
+		This means the second signal will pass uncaught.
+	"""
+	_SIGNALS:Dict[signal.Signals,bool] = {}
+	_ORIG_HANDLERS:Dict[signal.Signals,List[Callable]] = {}
 
 	def __init__(self, sig:signal.Signals=signal.SIGINT):
-		SignalCatcher._CTR += 1
-		self._idx = str(SignalCatcher._CTR)
-		SignalCatcher._SIGNALS[self._idx]= False
-		signal.signal(sig, self.__catch)
+		self._sig = sig
+		self.reset()
 
 	def __del__(self):
-		SignalCatcher._SIGNALS.pop(self._idx)
+		SignalCatcher.__reset_handler(self._sig)
+
+	@staticmethod
+	def __reset_handler(sig):
+		if len(SignalCatcher._ORIG_HANDLERS[sig]) > 0:  # To ensure multiple calls don't raise an error.
+			signal.signal(sig, SignalCatcher._ORIG_HANDLERS[sig].pop())
 
 	@staticmethod
 	def __catch(signum, frame):
-		for k in SignalCatcher._SIGNALS.keys():
-			SignalCatcher._SIGNALS[k] = True
+		"""
+			Catch the signal by setting its flag and unregistering the handler.
+		"""
+		if signum in SignalCatcher._SIGNALS:
+			# print('lirfu_pyutils - Handling signal ' + signal.strsignal(signum))
+			SignalCatcher._SIGNALS[signum] = True
+			SignalCatcher.__reset_handler(signum)
 
 	def caught(self) -> bool:
 		"""
 			Returns `True` only if the signal was recorded after object initialization.
 		"""
-		return SignalCatcher._SIGNALS[self._idx]
+		return SignalCatcher._SIGNALS[self._sig]
+
+	def reset(self) -> None:
+		"""
+			Resets the internal flag for the signal and re-registeres the catching method for it.
+		"""
+		# Push the previous handler to the handlers stack.
+		if self._sig not in SignalCatcher._ORIG_HANDLERS:
+			SignalCatcher._ORIG_HANDLERS[self._sig] = []
+		SignalCatcher._ORIG_HANDLERS[self._sig].append(signal.getsignal(self._sig))
+		# Set the new hnadler as active.
+		signal.signal(self._sig, SignalCatcher.__catch)
+		SignalCatcher._SIGNALS[self._sig]= False
 
 
 def get_unique_color_from_hsv(i:int, N:int) -> List[int]:
