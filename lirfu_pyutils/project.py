@@ -24,7 +24,7 @@ class GifMaker:
 	"""
 	def __init__(self, ex: 'Experiment', name: str):
 		self.index = 1
-		self.folder = ex.makedirs(name)
+		self.directory = ex.makedirs(name)
 		self.name = name
 		self.ex = ex
 		self.clear()
@@ -32,25 +32,25 @@ class GifMaker:
 	def __call__(self, img: Union[torch.Tensor,np.ndarray,str]):
 		"""
 			Add image to GIF sequence.
-			The image is stored as a file in the folder <gif_name>.
+			The image is stored as a file in the directory <gif_name>.
 			If `img` is a torch tensor or numpy array, stores it as a PNG image,
 			If `img` is a string 'pyplot', stores the current pyplot buffer as a PNG image.
 		"""
 		if isinstance(img, torch.Tensor):
 			pilimg = transforms.ToPILImage()(img.detach().cpu())
-			pilimg.save(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)))
+			pilimg.save(os.path.join(self.directory, 'img_{:05d}.png'.format(self.index)))
 		elif isinstance(img, np.ndarray):
 			pilimg = Image.fromarray(img)
-			pilimg.save(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)))
+			pilimg.save(os.path.join(self.directory, 'img_{:05d}.png'.format(self.index)))
 		elif isinstance(img, str) and img == 'pyplot':
-			plt.savefig(os.path.join(self.folder, 'img_{:05d}.png'.format(self.index)), bbox_inches='tight', pad_inches=0, transparent=False)
+			plt.savefig(os.path.join(self.directory, 'img_{:05d}.png'.format(self.index)), bbox_inches='tight', pad_inches=0, transparent=False)
 		else:
 			raise RuntimeError('Unknown image type for GIF! ({})'.format(type(img)))
 		self.index += 1
 
 	def generate(self, duration_sec: Union[int,Sequence[int]]=10, loop: int=0):
 		'''
-			Read images from the <gif_name> folder and generate a GIF.
+			Read images from the <gif_name> directory and generate a GIF.
 			Parameters
 			----------
 			duration_sec : int, list(int), optional
@@ -61,7 +61,7 @@ class GifMaker:
 				If `0`, loops indefinitely.
 				Default: 0
 		'''
-		l = [Image.open(f).convert('RGB', dither=Image.Dither.NONE) for f in sorted(glob.glob(os.path.join(self.folder,'img_*.png')))]
+		l = [Image.open(f).convert('RGB', dither=Image.Dither.NONE) for f in sorted(glob.glob(os.path.join(self.directory,'img_*.png')))]
 		if len(l) == 0:
 			LOG.e(f'No images found to generate {self.name}.gif!')
 			return
@@ -75,8 +75,8 @@ class GifMaker:
 
 	def clear(self):
 		self.index = 1
-		shutil.rmtree(self.folder, ignore_errors=True)
-		os.makedirs(self.folder)
+		shutil.rmtree(self.directory, ignore_errors=True)
+		os.makedirs(self.directory)
 
 
 def load_configfile(path : str):
@@ -97,35 +97,32 @@ def get_git_commit_hash() -> str:
 class Experiment:
 	def __init__(
 		self,
-		configfile : Union[str,dict]=None,
-		param_index: int=1,
+		configfile : Union[str,dict],
 		name : str=None,
 		root : str=None,
 		group : bool=None,
 		version : str=None,
 		timestamp : bool=None,
 		store_config : bool=True,
-		parameters_version : str=None
+		parameters_version : str=None,
+		reuse : str=None
 	):
 		'''
 			Create an experiment insance and prepare&save the configuration dictionary.
 			Creates the experiment directory.
+			Parameter values from constructor are preferred to ones from config, unless they werent specified.
 
 			Parameters
 			----------
 			configfile : {str, dict}
-				Filepath of the JSON or YAML config file or the actual parameters dictionary (for runtime configuration).
-				If None, attempt reading filepath from program parameters.
-				Default: None
-			param_index : int
-				Index of the config filepath in program parameters.
-				Default: 1
+				Filepath of the JSON or YAML config file or the actual parameters dictionary.
+				The `experiment` section is reserved for experiment tracking and some keys might be overwritten by this initialization (see code).
 			name : str
 				Name of the experiment, used as the prefix of the experiment.
 				If None, attempt reading from loaded config.
 				Default: None
 			root : str
-				Path to the root folder that will contain experiments.
+				Path to the root directory that will contain experiments.
 				If None, attempt reading from loaded config.
 				Default: None
 			group : bool, optional
@@ -138,22 +135,21 @@ class Experiment:
 				If False, disable reading from config (use for sub-experiments).
 				Default: None
 			timestamp : bool, optional
-				Add a timestamp to experiment folder name (rudimentary experiment versioning, protects from overwritting results).
+				Add a timestamp to experiment directory name (rudimentary experiment versioning, protects from overwritting results).
 				If None, attempt reading from loaded config.
 				Default: True
 			store_config: bool, optional
-				Save the config file into the experiment folder.
+				Save the config file into the experiment directory.
 				Default: True
 			parameters_version: str, optional
 				Store the parameters version into the config to allow downstream versioning.
 				Default: None
+			reuse : str
+				Path to existing experiment directory, e.g. for continuing the experiment series if interrupted.
+				If None, a new directory will be generated from given parameters.
+				Default: None
 		'''
-		if configfile is None:  # Attempt extracting from program arguments.
-			if len(sys.argv) < param_index+1:
-				print('Missing experiment parameters file!')
-				exit(1)
-			configfile = sys.argv[param_index]
-
+		# Resolve the config parameters.
 		if isinstance(configfile, str):
 			self.config = load_configfile(configfile)
 		elif isinstance(configfile, dict):
@@ -161,6 +157,7 @@ class Experiment:
 		else:
 			raise RuntimeError('Unrecognized config file type: ' + str(type(configfile)))
 
+		# Resolve experiment name parameters.
 		if group is None:
 			group = self.config['experiment'].get('group', False)
 		if version is None:
@@ -176,20 +173,23 @@ class Experiment:
 		if parameters_version is not None:
 			self.config['experiment']['parameters_version'] = parameters_version
 
-		# Create experiment output folder.
-		self.name = self.dir = name
-		if group:  # Group dirs by name.
-			self.dir = os.path.join(self.name, self.name)
-		if version is not None:  # Append version to dir name.
-			self.dir = self.dir + '_' + str(version)
-		if timestamp:  # Append timestamp to dir name.
-			from datetime import datetime
-			self.dir = self.dir + '_' + datetime.now().strftime('%Y%m%d%H%M%S%f')
-		self.dir = os.path.join(root, self.dir.replace(' ', '_'))
-		os.makedirs(self.dir, exist_ok=True)
-
-		if store_config:
-			self.store_config(self.config)
+		# Prepare experiment directory.
+		if reuse is None:  # Create the new experiment output directory.
+			self.name = self.dir = name
+			if group:  # Group dirs by name.
+				self.dir = os.path.join(self.name, self.name)
+			if version is not None:  # Append version to dir name.
+				self.dir = self.dir + '_' + str(version)
+			if timestamp:  # Append timestamp to dir name.
+				from datetime import datetime
+				self.dir = self.dir + '_' + datetime.now().strftime('%Y%m%d%H%M%S%f')
+			self.dir = os.path.join(root, self.dir.replace(' ', '_'))
+			os.makedirs(self.dir, exist_ok=True)
+			if store_config:
+				self.store_config(self.config)
+		else:  # Use the provided experiment directory.
+			self.name = name
+			self.dir = reuse
 
 	def store_config(self, config=None, use_yaml=True):
 		"""
@@ -281,14 +281,14 @@ class Experiment:
 
 	def exists(self, filename : str) -> bool:
 		"""
-			Checks if given filename exists within the experiment folder.
+			Checks if given filename exists within the experiment directory.
 		"""
 		return os.path.exists(self.path(filename))
 
 	def makedirs(self, dir : str) -> str:
 		'''
 			Creates the directories for given leaf directory path.
-			Appends directories to the experiment folder.
+			Appends directories to the experiment directory.
 
 			Parameters
 			----------
@@ -307,7 +307,7 @@ class Experiment:
 
 	def prepare_path(self, *path) -> str:
 		'''
-			Creates the predating directories supporting the given leaf file (create all of the directories except the last file/folder).
+			Creates the predating directories supporting the given leaf file (create all of the directories except the last file/directory).
 
 			Parameters
 			----------
