@@ -163,14 +163,14 @@ def resolve_grid_shape(N, aspect=1, force_rows=None):
 		H = 1
 	return W, H
 
-def mask_to_rgb(mask:np.ndarray, color:list) -> np.ndarray:
+def mask_to_rgb(mask:np.ndarray) -> np.ndarray:
 	"""
 		Take a segmentation mask and convert it to RGB image.
 	"""
 	if len(mask.shape) == 2:
 		mask = mask[..., None]
 	if mask.shape[2] == 1:
-		return mask.repeat(3, axis=2) * np.array(color).reshape(1,1,3).astype(np.float32)
+		return mask.repeat(3, axis=2)
 	return mask
 	# else:
 	# 	mask_img = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.float32)
@@ -183,6 +183,17 @@ def mask_to_rgb(mask:np.ndarray, color:list) -> np.ndarray:
 def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.Tensor], color:List[float]=[1,0,0], alpha:float=0.5) -> np.ndarray:
 	"""
 		Takes HWC numpy or CHW torch image and a same mask and returns their lerp in HWC format.
+
+		Parameters
+		----------
+		img : Union[np.ndarray,torch.Tensor]
+			Background image to overlay mask on.
+		mask : Union[np.ndarray,torch.Tensor]
+			Single-channel mask to overlay. Gets multiplied by the color, so it can be grayscale.
+		color : List[float]
+			RGB color to use for the mask. Default: [1,0,0]
+		alpha : float
+			Percentage of influence of mask on the image. Default: 0.5
 	"""
 	if isinstance(img, torch.Tensor):
 		if img.shape[0] == 1:
@@ -195,13 +206,13 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 	if img.shape[2] == 1:
 		img = img.repeat(3, axis=2)
 
+	color = np.array(color).reshape(1,1,3)
 	if isinstance(mask, np.ndarray):
-		mask = mask_to_rgb(mask, np.array(color).reshape(1,1,3))
+		mask = mask_to_rgb(mask)
 	elif isinstance(mask, torch.Tensor):
-		mask = mask_to_rgb(mask.numpy(), np.array(color).reshape(1,1,3))
+		mask = mask_to_rgb(mask.numpy())
 	else:
 		RuntimeError('Unknown mask type:', type(mask))
-	# return alpha * mask + (1-alpha) * img
 	mask *= alpha
 	return (1-mask) * img + mask * color
 
@@ -267,9 +278,9 @@ class PlotImageGridContext:
 		if self.title is not None:
 			plt.suptitle(self.title)
 
-def show_images(*imgs, names=None, fullscreen=True, **kwargs):
+def show_images(*imgs, names=None, fullscreen=True, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None, **kwargs):
 	with PlotContext(show=True, fullscreen=fullscreen):
-		draw_images(*imgs, names=names, **kwargs)
+		draw_images(*imgs, names=names, margins=margins, quiet=quiet, aspect=aspect, colorbar=colorbar, ticks=ticks, title=title, force_rows=force_rows, **kwargs)
 
 def draw_images(*imgs, names=None, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None, **kwargs):
 	with PlotImageGridContext(len(imgs), margins, quiet, aspect, colorbar, ticks, title, force_rows) as pc:
