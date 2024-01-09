@@ -11,7 +11,7 @@ def test_print(a, name='array'):
 	print('{}   [{:+.3e}, {:+.3e}]   ({},{})   {}'.format(name, a.min().item(), a.max().item(), a.isnan().any().item(), a.isnan().all().item(), a.shape))
 	return a
 
-def reproducibility(seed: int, device: str='cpu', force_determinism: bool=False):
+def reproducibility(seed:int, device:str='cpu', force_determinism:bool=False, benchmarking:bool=True):
 	'''
 		Sets random value generator states of Python.random, numpy.random and torch.random to given seed value.
 
@@ -24,10 +24,14 @@ def reproducibility(seed: int, device: str='cpu', force_determinism: bool=False)
 			Choose between: cpu, cuda, cuda:<device-id>.
 			Default: cpu
 		force_determinism : bool, optional
-			Forces usage of deterministic implementations of algorithms when available.
-				For non-deterministic algorithms issues a warning.
-				Use only when required as it reduces overall performance.
-				Default: False
+			Forces usage of deterministic CUDA implementations of algorithms when available.
+			For non-deterministic algorithms, issues a warning.
+			Use only when required as it reduces overall performance.
+			Default: False
+		benchmarking: bool, optional
+			Forces usage of the best CUDNN algorithm implementations for the current hardware.
+			Faster execution, but results might differ across different hardware.
+			Default: True
 	'''
 	random.seed(seed)
 	np.random.seed(seed)
@@ -40,11 +44,13 @@ def reproducibility(seed: int, device: str='cpu', force_determinism: bool=False)
 			index = int(device.split(':')[1])
 		torch.cuda.set_device(index)
 		torch.cuda.manual_seed(seed)
+	if torch.backends.cudnn.is_available():
+		torch.backends.cudnn.benchmark = benchmarking
 	torch.use_deterministic_algorithms(force_determinism, warn_only=True)
 
 
 class ReproducibleContext:
-	def __init__(self, seed, device: str='cpu', index=0, force_determinism=False):
+	def __init__(self, seed:int, device:str='cpu', index:int=0, force_determinism:bool=False):
 		'''
 			Create a reproducible context that guarantees consistent random value generator state of Python.random, numpy.random and torch.random.
 			On exit, restores the previous state of generators.
