@@ -30,6 +30,7 @@ class LossTracker:
 		self._losses = []
 		self.__min_loss = float('inf')
 		self._slope_iter = 0
+		self._current_converging = False
 
 	def reset_slope_iter(self) -> None:
 		self._slope_iter = 0
@@ -54,7 +55,8 @@ class LossTracker:
 		l = self.__epoch / dataset_size
 		self.__epoch = 0
 		self._losses.append(l)
-		if (l-self.__min_loss)/(l+1e-12) > -self.slope:  # Relative difference (slope).
+		self._current_converging = (l-self.__min_loss)/(l+1e-12) > -self.slope  # Relative difference (slope).
+		if self._current_converging:
 			self._slope_iter += 1
 		else:
 			self._slope_iter = 0
@@ -81,6 +83,13 @@ class LossTracker:
 			Returns True if the last recorded relative slope was under the bound for beyond patience number of times.
 		"""
 		return self._slope_iter > self.patience
+	
+	@property
+	def is_current_converging(self) -> bool:
+		"""
+			Returns True if current step has triggered the convergence condition.
+		"""
+		return self._current_converging
 
 
 class CheckpointSaver:
