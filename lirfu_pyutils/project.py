@@ -5,7 +5,8 @@ import math
 import json
 import glob
 import shutil
-from typing import Union, Sequence, Any, List
+from datetime import datetime
+from typing import Union, Sequence, Any, List, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -91,9 +92,22 @@ def load_configfile(path:str):
 			raise RuntimeError('Unknown config file type: ' + str(path))
 
 def get_git_commit_hash() -> str:
+	"""
+		Returns hash of the current project GIT commit.
+	"""
 	return os.popen('git rev-parse HEAD').read().strip()
 
+def get_str_timestamp() -> str:
+	"""
+		Returns the current timestamp in string formatted as: YYYYMMDDHHMMSSmmmm
+	"""
+	return datetime.now().strftime('%Y%m%d%H%M%S%f')
+
 class Experiment:
+	"""
+		Creates an (non)unique experiment folder and allows easy creation of paths within it.
+		Supports creation of sub-experiments within the main one.
+	"""
 	def __init__(
 		self,
 		configfile:Union[str,dict],
@@ -180,8 +194,7 @@ class Experiment:
 			if version is not None:  # Append version to dir name.
 				self.dir = self.dir + '_' + str(version)
 			if timestamp:  # Append timestamp to dir name.
-				from datetime import datetime
-				self.dir = self.dir + '_' + datetime.now().strftime('%Y%m%d%H%M%S%f')
+				self.dir = self.dir + '_' + get_str_timestamp
 			self.dir = os.path.join(root, self.dir.replace(' ', '_'))
 			os.makedirs(self.dir, exist_ok=True)
 			if store_config:
@@ -326,7 +339,7 @@ class Experiment:
 
 	def path(self, *args) -> str:
 		"""
-			Construct a path within experiment from given sequence of arguments.
+			Construct a path within experiment from given sequence of path constituents.
 		"""
 		return os.path.join(self.dir, *args)
 
@@ -350,16 +363,16 @@ class GridSearch:
 				When integer, number of iterations to skip (used when continuing work when one experiment died and stopped the loop). When list of integers, skips experiments with given indices (counting from 1). If 0, runs the entire grid. Default: 0
 		"""
 		if isinstance(parameters, str):
-			self.parameters = load_configfile(parameters)
+			self.parameters:dict = load_configfile(parameters)
 		elif isinstance(parameters, dict):
-			self.parameters = parameters
+			self.parameters:dict = parameters
 		else:
 			raise RuntimeError('Unrecognized parameters type: ' + str(type(parameters)))
 
 		if isinstance(grid, str):
-			self.grid = load_configfile(grid)
+			self.grid:dict = load_configfile(grid)
 		elif isinstance(grid, dict):
-			self.grid = grid
+			self.grid:dict = grid
 		else:
 			raise RuntimeError('Unrecognized grid type: ' + str(type(grid)))
 
@@ -369,7 +382,7 @@ class GridSearch:
 		else:
 			self.__skip_indices = skip_indices
 
-	def __len__(self):
+	def __len__(self) -> int:
 		return math.prod(self.__lengths.values())
 
 	def __iter__(self):
@@ -378,7 +391,7 @@ class GridSearch:
 		self.__idx[list(self.grid.keys())[0]] = -1  # Initial condition.
 		return self
 
-	def __next__(self):
+	def __next__(self) -> Tuple[dict,dict]:
 		while True:
 			self.i += 1
 			# Update grid indices.
