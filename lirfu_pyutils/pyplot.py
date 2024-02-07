@@ -55,7 +55,17 @@ def sample_cmap(cmap:str, N:int):
 	cm = plt.get_cmap(cmap)
 	return [cm(e) for e in np.linspace(0., 1., N)]
 
-def draw_loss_curve(values:List[Union[float,Tuple[float,float]]], label:str, support:List[int]=None, epoch_size:int=1, xlim:Tuple[Optional[float]]=(0,None), ylim:Tuple[Optional[float]]=(None,None), color:str=None, minor_step:int=10, linestyle:str='solid'):
+def draw_loss_curve(
+		values:List[Union[float,Tuple[float,float]]],
+		label:str,
+		support:List[int]=None,
+		epoch_size:int=1,
+		xlim:Tuple[Optional[float]]=(0,None),
+		ylim:Tuple[Optional[float]]=(None,None),
+		color:str=None,
+		minor_step:int=10,
+		linestyle:str='solid',
+		skip_decoration:bool=False):
 	"""
 		Draws a loss curve with given sequence of values. Shows only numbers of epochs, minor ticks used for iterations.
 	"""
@@ -76,15 +86,16 @@ def draw_loss_curve(values:List[Union[float,Tuple[float,float]]], label:str, sup
 		plt.plot(support, values[:,1], color=p.get_facecolor(), marker=None, linestyle='solid')
 	else:
 		raise RuntimeError('Unknown values shape: ' + str(values.shape))
-	plt.ylabel('Loss')
-	plt.xlabel('Epochs')
-	plt.xlim(*xlim)
-	plt.ylim(*ylim)
-	plt.gca().xaxis.set_major_locator(MultipleLocator(epoch_size))
-	plt.gca().xaxis.set_minor_locator(MultipleLocator(minor_step))
-	epochs = [i for i in range(1+len(values)//epoch_size)]
-	plt.gca().set_xticks([e*epoch_size for e in epochs], labels=map(str, epochs), rotation=-60)
-	plt.grid(True)
+	if not skip_decoration:
+		plt.ylabel('Loss')
+		plt.xlabel('Epochs')
+		plt.xlim(*xlim)
+		plt.ylim(*ylim)
+		plt.gca().xaxis.set_major_locator(MultipleLocator(epoch_size))
+		plt.gca().xaxis.set_minor_locator(MultipleLocator(minor_step))
+		epochs = [i for i in range(1+len(values)//epoch_size)]
+		plt.gca().set_xticks([e*epoch_size for e in epochs], labels=map(str, epochs), rotation=-60)
+		plt.grid(True)
 
 class RangeTracker:
 	"""
@@ -98,8 +109,16 @@ class RangeTracker:
 		self.values.append(v)
 		return v
 
-	def plot(self, support:List[int]=None, epoch_size:int=1, xlim:Tuple[Optional[float]]=(0,None), ylim:Tuple[Optional[float]]=(None,None), color:str=None, minor_step:int=10, linestyle:str='solid') -> None:
-		draw_loss_curve(self.values, self.name, support=support, epoch_size=epoch_size, xlim=xlim, ylim=ylim, color=color, minor_step=minor_step, linestyle=linestyle)
+	def plot(self,
+		  support:List[int]=None,
+		  epoch_size:int=1,
+		  xlim:Tuple[Optional[float]]=(0,None),
+		  ylim:Tuple[Optional[float]]=(None,None),
+		  color:str=None,
+		  minor_step:int=10,
+		  linestyle:str='solid',
+		  skip_decoration:bool=False) -> None:
+		draw_loss_curve(self.values, self.name, support=support, epoch_size=epoch_size, xlim=xlim, ylim=ylim, color=color, minor_step=minor_step, linestyle=linestyle, skip_decoration=skip_decoration)
 
 def draw_top_model_epochs(m_epochs, m_losses, name='Top models', cmap='winter'):
 	data = sorted(zip(m_epochs, m_losses), key=lambda v: v[1])
