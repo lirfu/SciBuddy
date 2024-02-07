@@ -73,7 +73,10 @@ def draw_loss_curve(
 		support = list(range(1,1+len(values)))
 	values = np.array(values)
 	if len(values.shape) == 1:
-		plt.plot(support, values, label=label, color=color, linestyle=linestyle)
+		if linestyle == 'scatter':
+			plt.scatter(support, values, label=label, color=color, marker='+')
+		else:
+			plt.plot(support, values, label=label, color=color, linestyle=linestyle)
 	elif values.shape[1] == 2:
 		p = plt.fill_between(list(range(1,1+len(values))), [v[0] for v in values], [v[1] for v in values], label=label, color=color, alpha=0.75, linestyle=linestyle)
 		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')

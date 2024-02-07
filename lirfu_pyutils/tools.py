@@ -1,13 +1,15 @@
-from time import perf_counter
-from os import getpid
-from psutil import Process
 import gc
-import colorsys
+import math
 import signal
+import colorsys
+from os import getpid
+from time import perf_counter
+from psutil import Process
 from typing import List, Dict, Callable
 
+
 def arr_stats(a):
-	return f'Range {(a.min(), a.max())} with shape {a.shape} and type {a.dtype}'
+	return f'Range [{(a.min(), a.max())}] with shape {a.shape} and type {a.dtype}'
 
 def format_time(ms:float) -> str:
 	"""
