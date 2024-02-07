@@ -185,25 +185,26 @@ class Experiment:
 			root = self.config['experiment'].get('root', 'out')
 		if parameters_version is not None:
 			self.config['experiment']['parameters_version'] = parameters_version
+		self.timestamp = timestamp
+		self.name = name
 
 		# Prepare experiment directory.
 		if reuse is None:  # Create the new experiment output directory.
-			self.name = self.dir = name
+			self.dir = name
 			if group:  # Group dirs by name.
 				self.dir = os.path.join(self.name, self.name)
 			if version is not None:  # Append version to dir name.
 				self.dir = self.dir + '_' + str(version)
 			if timestamp:  # Append timestamp to dir name.
-				self.dir = self.dir + '_' + get_str_timestamp
+				self.dir = self.dir + '_' + get_str_timestamp()
 			self.dir = os.path.join(root, self.dir.replace(' ', '_'))
 			os.makedirs(self.dir, exist_ok=True)
 			if store_config:
 				self.store_config(self.config)
 		else:  # Use the provided experiment directory.
-			self.name = name
 			self.dir = reuse
 
-	def store_config(self, config=None, use_yaml=True):
+	def store_config(self, config=None, use_yaml=True) -> None:
 		"""
 			Store experiment config dict into `root/parameters.yaml` (or `.json`).
 
@@ -235,7 +236,7 @@ class Experiment:
 		"""
 		return k in self.config
 
-	def __call__(self, *args:Sequence[str]):
+	def __call__(self, *args:Sequence[str]) -> str:
 		"""
 			Construct a path within experiment from given sequence of arguments.
 		"""

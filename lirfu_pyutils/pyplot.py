@@ -1,18 +1,16 @@
-from functools import partial
 import os
 import math
-from typing import List, Union
+from typing import List, Union, Tuple, Optional
 
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-
-from .tools import get_unique_color_from_hsv
+from matplotlib.ticker import MultipleLocator
 
 
 class PlotContext:
 	def __init__(self, filename=None, show=False, fullscreen=True, clear=True, **kwargs):
-		'''
+		"""
 			Manages a context for a single plot. On enter, creates a global figure with given kwargs.
 
 			Parameters
@@ -23,7 +21,7 @@ class PlotContext:
 				Show the pyplot plot upon exit. Default: False.
 			clear : bool, optional
 				Clears the figure and closes plot upon exit. Default: True.
-		'''
+		"""
 		self.filename = filename
 		self.show = show
 		self.fullscreen = fullscreen
@@ -51,22 +49,57 @@ class PlotContext:
 			PlotContext.clear()
 
 def sample_cmap(cmap:str, N:int):
-	'''
+	"""
 		Returns a list of RGB colors uniformly sampled from colormap using N samples.
-	'''
+	"""
 	cm = plt.get_cmap(cmap)
 	return [cm(e) for e in np.linspace(0., 1., N)]
 
-def draw_loss_curve(losses:List[float], epochs:List[int]=None, label:str=None, xlabel:str='Iterations', ylabel:str='Loss', **kwargs):
-	'''
-		Plot the loss curve from an array of losses. Shows the grid.
-	'''
-	if epochs is None:
-		epochs = list(range(len(losses)))
-	plt.plot(epochs, losses, label=label, **kwargs)
-	plt.xlabel(xlabel)
-	plt.ylabel(ylabel)
+def draw_loss_curve(values:List[Union[float,Tuple[float,float]]], label:str, support:List[int]=None, epoch_size:int=1, xlim:Tuple[Optional[float]]=(0,None), ylim:Tuple[Optional[float]]=(None,None), color:str=None, minor_step:int=10, linestyle:str='solid'):
+	"""
+		Draws a loss curve with given sequence of values. Shows only numbers of epochs, minor ticks used for iterations.
+	"""
+	if support is None:
+		support = list(range(1,1+len(values)))
+	values = np.array(values)
+	if len(values.shape) == 1:
+		plt.plot(support, values, label=label, color=color, linestyle=linestyle)
+	elif values.shape[1] == 2:
+		p = plt.fill_between(list(range(1,1+len(values))), [v[0] for v in values], [v[1] for v in values], label=label, color=color, alpha=0.75, linestyle=linestyle)
+		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')
+		# plt.plot(support, values[:,2], color=p.get_facecolor(), marker=3, linestyle='solid')
+	elif values.shape[1] == 3:
+		p = plt.fill_between(list(range(1,1+len(values))), [v[0] for v in values], [v[2] for v in values], label=label, color=color, alpha=0.75, linestyle=linestyle)
+		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')
+		# plt.plot(support, values[:,2], color=p.get_facecolor(), marker=3, linestyle='solid')
+		# plt.plot(support, values[:,1], color=p.get_facecolor(), marker='|', linestyle='dotted')
+		plt.plot(support, values[:,1], color=p.get_facecolor(), marker=None, linestyle='solid')
+	else:
+		raise RuntimeError('Unknown values shape: ' + str(values.shape))
+	plt.ylabel('Loss')
+	plt.xlabel('Epochs')
+	plt.xlim(*xlim)
+	plt.ylim(*ylim)
+	plt.gca().xaxis.set_major_locator(MultipleLocator(epoch_size))
+	plt.gca().xaxis.set_minor_locator(MultipleLocator(minor_step))
+	epochs = [i for i in range(1+len(values)//epoch_size)]
+	plt.gca().set_xticks([e*epoch_size for e in epochs], labels=map(str, epochs), rotation=-60)
 	plt.grid(True)
+
+class RangeTracker:
+	"""
+		Collects values and generates a plot of their evolution.
+	"""
+	def __init__(self, name:str):
+		self.values = []
+		self.name = name
+
+	def __call__(self, v:Union[float,Tuple[float,float]]) -> Union[float,Tuple[float,float]]:
+		self.values.append(v)
+		return v
+
+	def plot(self, support:List[int]=None, epoch_size:int=1, xlim:Tuple[Optional[float]]=(0,None), ylim:Tuple[Optional[float]]=(None,None), color:str=None, minor_step:int=10, linestyle:str='solid') -> None:
+		draw_loss_curve(self.values, self.name, support=support, epoch_size=epoch_size, xlim=xlim, ylim=ylim, color=color, minor_step=minor_step, linestyle=linestyle)
 
 def draw_top_model_epochs(m_epochs, m_losses, name='Top models', cmap='winter'):
 	data = sorted(zip(m_epochs, m_losses), key=lambda v: v[1])
@@ -86,9 +119,9 @@ def draw_curves(x, *curves, names=None, xlabel=None, ylabel=None, grid=True):
 	plt.grid(grid)
 
 def draw_class_distribution(features, labels, colormap='hsv', marker='.', sizes=20, legend=True):
-	'''
+	"""
 		Scatters the 2D points with assigned labels and adds a label legend.
-	'''
+	"""
 	edg = 'none'
 	if len(marker) > 1:
 		edg = 'black'

@@ -108,6 +108,7 @@ class CheckpointSaver:
 
 		"""
 		self.__dir = dir
+		os.makedirs(dir, exist_ok=True)
 		self.__N = N
 		self.losses = np.full(N, float('inf'))
 		self.checkpoints = [None,]*N
