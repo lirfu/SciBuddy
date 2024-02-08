@@ -63,6 +63,7 @@ def draw_loss_curve(
 		xlim:Tuple[Optional[float]]=(0,None),
 		ylim:Tuple[Optional[float]]=(None,None),
 		color:str=None,
+		alpha:float=1.0,
 		minor_step:int=10,
 		linestyle:str='solid',
 		skip_decoration:bool=False):
@@ -74,9 +75,9 @@ def draw_loss_curve(
 	values = np.array(values)
 	if len(values.shape) == 1:
 		if linestyle == 'scatter':
-			plt.scatter(support, values, label=label, color=color, marker='+')
+			plt.scatter(support, values, label=label, color=color, alpha=alpha, marker='+')
 		else:
-			plt.plot(support, values, label=label, color=color, linestyle=linestyle)
+			plt.plot(support, values, label=label, color=color, alpha=alpha, linestyle=linestyle)
 	elif values.shape[1] == 2:
 		p = plt.fill_between(list(range(1,1+len(values))), [v[0] for v in values], [v[1] for v in values], label=label, color=color, alpha=0.75, linestyle=linestyle)
 		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')
@@ -118,10 +119,11 @@ class RangeTracker:
 		  xlim:Tuple[Optional[float]]=(0,None),
 		  ylim:Tuple[Optional[float]]=(None,None),
 		  color:str=None,
+		  alpha:float=1.0,
 		  minor_step:int=10,
 		  linestyle:str='solid',
 		  skip_decoration:bool=False) -> None:
-		draw_loss_curve(self.values, self.name, support=support, epoch_size=epoch_size, xlim=xlim, ylim=ylim, color=color, minor_step=minor_step, linestyle=linestyle, skip_decoration=skip_decoration)
+		draw_loss_curve(self.values, self.name, support=support, epoch_size=epoch_size, xlim=xlim, ylim=ylim, color=color, alpha=alpha, minor_step=minor_step, linestyle=linestyle, skip_decoration=skip_decoration)
 
 def draw_top_model_epochs(m_epochs, m_losses, name='Top models', cmap='winter'):
 	data = sorted(zip(m_epochs, m_losses), key=lambda v: v[1])
