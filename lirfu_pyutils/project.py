@@ -344,6 +344,12 @@ class Experiment:
 		"""
 		return os.path.join(self.dir, *args)
 
+	def remove(self):
+		"""
+			Removes only the leaf experiment directory and all of its contents (group directories and subdirectories in root will survive). Use when debugging to avoid a mess of empty experiments.
+		"""
+		shutil.rmtree(self.dir)
+
 
 class GridSearch:
 	def __init__(self, parameters:dict, grid:dict, skip_indices:Union[int,List[int]]=0):
