@@ -236,6 +236,12 @@ class Experiment:
 		"""
 		return k in self.config
 
+	def get(self, k:str, default:Any) -> Any:
+		"""
+			Checks if configuration file contains given key. If yes, returns its value, otherwise returns the default value.
+		"""
+		return self.config.get(k, default)
+
 	def __call__(self, *args:Sequence[str]) -> str:
 		"""
 			Construct a path within experiment from given sequence of arguments.
