@@ -1,8 +1,13 @@
 import os
+from typing import Tuple
 
 from .tools import Timer
 
+
 class Logger:
+	"""
+		Base class for loggers.
+	"""
 	def __init__(self):
 		self.debug = True
 
@@ -21,8 +26,12 @@ class Logger:
 	def __repr__(self):
 		raise RuntimeError('Not implemented')
 
+
 class StdoutLogger(Logger):
-	def __init__(self, debug=True):
+	"""
+		Logs to standard output.
+	"""
+	def __init__(self, debug:bool=True):
 		self.debug = debug
 
 	def d(self, *msgs, **kwargs):
@@ -39,15 +48,20 @@ class StdoutLogger(Logger):
 	def __repr__(self):
 		return 'StdoutLogger'
 
+
 class LOG:
+	"""
+		Global singleton logger to be re-used between different parts of code.
+		Needs to be initialized to be used.
+	"""
 	__instance = None
 	logger = None
 
-	def __init__(self, logger):
+	def __init__(self, logger:Logger):
 		LOG.logger = logger
 
 	@staticmethod
-	def init(logger=StdoutLogger(), force=True):
+	def init(logger:Logger=StdoutLogger(), force=True):
 		if force or LOG.__instance is None:
 			LOG.__instance = LOG(logger)
 		return LOG.__instance
@@ -64,7 +78,11 @@ class LOG:
 	def e(*msgs, **kwargs):
 		LOG.__instance.logger.e(*msgs, **kwargs)
 
+
 class DevnullLogger(Logger):
+	"""
+		Dummy logger, just does nothing.
+	"""
 	def d(self, *msgs, **kwargs):
 		pass
 
@@ -77,8 +95,13 @@ class DevnullLogger(Logger):
 	def __repr__(self):
 		return 'DevnullLogger'
 
+
 class FileLogger(Logger):
-	def __init__(self, filepath, debug=True, append=False):
+	"""
+		Logs into a file.
+		Creates the file and missing directories.
+	"""
+	def __init__(self, filepath:str, debug:bool=True, append:bool=False):
 		self.debug = debug
 		directory = os.path.dirname(filepath)
 		if directory != '':
@@ -105,8 +128,12 @@ class FileLogger(Logger):
 	def __repr__(self):
 		return f'FileLogger[\'{self.file.name}\']'
 
+
 class MultiLogger(Logger):
-	def __init__(self, *loggers):
+	"""
+		Combines multiple loggers by notifying them using the same inputs.
+	"""
+	def __init__(self, *loggers:Tuple[Logger]):
 		self.logs = list(loggers)
 
 	def d(self, *msgs, **kwargs):
@@ -124,8 +151,13 @@ class MultiLogger(Logger):
 	def __repr__(self):
 		return 'MultiLogger[' + ','.join([repr(l) for l in self.logs]) + ']'
 
+
 class TimedLogger(Logger):
-	def __init__(self, logger):
+	"""
+		Prepends the time spent since last call.
+		Contains a single timer for all call types.
+	"""
+	def __init__(self, logger:Logger):
 		super(TimedLogger, self).__init__()
 		self.timer = Timer()
 		self.log = logger
@@ -136,20 +168,24 @@ class TimedLogger(Logger):
 		else:
 			return f'({self.timer.str_total if total else self.timer.str_lap})'
 
-	def d(self, *msgs, quiet=True, total=False, **kwargs):
+	def d(self, *msgs, quiet:bool=True, total:bool=False, **kwargs):
 		self.log.d(self.__str(quiet, total), *msgs, **kwargs)
 
-	def i(self, *msgs, quiet=False, total=False, **kwargs):
+	def i(self, *msgs, quiet:bool=False, total:bool=False, **kwargs):
 		self.log.i(self.__str(quiet, total), *msgs, **kwargs)
 
-	def e(self, *msgs, quiet=True, total=False, **kwargs):
+	def e(self, *msgs, quiet:bool=True, total:bool=False, **kwargs):
 		self.log.e(self.__str(quiet, total), *msgs, **kwargs)
 
 	def __repr__(self):
 		return f'TimedLogger[{repr(self.log)}]'
 
+
 class OffsetLogger(Logger):
-	def __init__(self, logger, off_string):
+	"""
+		Prepends the given offset string to the inputs.
+	"""
+	def __init__(self, logger:Logger, off_string:str):
 		super(OffsetLogger, self).__init__()
 		self.log = logger
 		self.offset = off_string
