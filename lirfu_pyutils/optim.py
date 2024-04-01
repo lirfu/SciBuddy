@@ -155,9 +155,8 @@ class CheckpointSaver:
 		"""
 			Removes all saved model instance files and directory that held them.
 		"""
-		for fp in self.checkpoints:
-			if fp is not None:
-				os.remove(fp)
+		for fp in os.listdir(self.__dir):
+			os.remove(os.path.join(self.__dir, fp))
 		os.rmdir(self.__dir)
 		self.checkpoints = None
 		self.losses = None
