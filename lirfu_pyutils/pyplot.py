@@ -48,7 +48,7 @@ class PlotContext:
 		if self.clear:
 			PlotContext.clear()
 
-def sample_cmap(cmap:str, N:int):
+def sample_cmap(cmap:str, N:int) -> List[Tuple[float,float,float,float]]:
 	"""
 		Returns a list of RGB colors uniformly sampled from colormap using N samples.
 	"""
