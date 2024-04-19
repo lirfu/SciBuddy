@@ -56,48 +56,72 @@ def sample_cmap(cmap:str, N:int) -> List[Tuple[float,float,float,float]]:
 	return [cm(e) for e in np.linspace(0., 1., N)]
 
 def draw_loss_curve(
-		values:List[Union[float,Tuple[float,float]]],
+		loss_values:List[Union[float,Tuple[float,float]]],
 		label:str,
-		support:List[int]=None,
+		iteration_support:List[int]=None,
 		epoch_size:int=1,
 		xlim:Tuple[Optional[float]]=(0,None),
 		ylim:Tuple[Optional[float]]=(None,None),
 		color:str=None,
 		alpha:float=1.0,
-		minor_step:int=10,
 		linestyle:str='solid',
-		skip_decoration:bool=False):
+		skip_decoration:bool=False,
+		max_epoch_ticks:Optional[int]=100):
 	"""
 		Draws a loss curve with given sequence of values. Shows only numbers of epochs, minor ticks used for iterations.
 	"""
-	if support is None:
-		support = list(range(1,1+len(values)))
-	values = np.array(values)
-	if len(values.shape) == 1:
+	loss_values = np.array(loss_values)
+	if iteration_support is None:
+		iteration_support = list(range(1,1+len(loss_values)))
+	iteration_support = np.array(iteration_support)
+	epochs = np.array([i for i in range(1 + len(iteration_support)//epoch_size)])
+
+	# Show each iteration.
+	if len(epochs) < 2:
+		iter_step = 1
+	# Show only 10 iterations per epoch.
+	elif len(epochs) < 11:
+		iter_step = max(epoch_size // 10, 1)
+	# Show only epochs.
+	elif len(epochs) < 101:
+		iter_step = epoch_size
+	# Average down epochs.
+	else:
+		group_size = max(1, len(epochs) // max_epoch_ticks)
+		iter_step = group_size
+		epochs = epochs.reshape(-1, group_size)
+		iteration_support = iteration_support.reshape(-1, group_size*epoch_size).mean(axis=1)
+		loss_values       =       loss_values.reshape(-1, group_size*epoch_size).mean(axis=1)
+		epoch_size = group_size
+
+	# Scalar curves.
+	if len(loss_values.shape) == 1:
 		if linestyle == 'scatter':
-			plt.scatter(support, values, label=label, color=color, alpha=alpha, marker='+')
+			plt.scatter(iteration_support, loss_values, label=label, color=color, alpha=alpha, marker='+')
 		else:
-			plt.plot(support, values, label=label, color=color, alpha=alpha, linestyle=linestyle)
-	elif values.shape[1] == 2:
-		p = plt.fill_between(list(range(1,1+len(values))), [v[0] for v in values], [v[1] for v in values], label=label, color=color, alpha=0.75, linestyle=linestyle)
+			plt.plot(iteration_support, loss_values, label=label, color=color, alpha=alpha, linestyle=linestyle)
+	# Range curves.
+	elif loss_values.shape[1] == 2:
+		p = plt.fill_between(list(range(1,1+len(loss_values))), [v[0] for v in loss_values], [v[1] for v in loss_values], label=label, color=color, alpha=0.75, linestyle=linestyle)
 		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')
 		# plt.plot(support, values[:,2], color=p.get_facecolor(), marker=3, linestyle='solid')
-	elif values.shape[1] == 3:
-		p = plt.fill_between(list(range(1,1+len(values))), [v[0] for v in values], [v[2] for v in values], label=label, color=color, alpha=0.75, linestyle=linestyle)
+	# Distribution curves.
+	elif loss_values.shape[1] == 3:
+		p = plt.fill_between(list(range(1,1+len(loss_values))), [v[0] for v in loss_values], [v[2] for v in loss_values], label=label, color=color, alpha=0.75, linestyle=linestyle)
 		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')
 		# plt.plot(support, values[:,2], color=p.get_facecolor(), marker=3, linestyle='solid')
 		# plt.plot(support, values[:,1], color=p.get_facecolor(), marker='|', linestyle='dotted')
-		plt.plot(support, values[:,1], color=p.get_facecolor(), marker=None, linestyle='solid')
+		plt.plot(iteration_support, loss_values[:,1], color=p.get_facecolor(), marker=None, linestyle='solid')
 	else:
-		raise RuntimeError('Unknown values shape: ' + str(values.shape))
+		raise RuntimeError('Unknown values shape: ' + str(loss_values.shape))
+
 	if not skip_decoration:
 		plt.ylabel('Loss')
 		plt.xlabel('Epochs')
 		plt.xlim(*xlim)
 		plt.ylim(*ylim)
 		plt.gca().xaxis.set_major_locator(MultipleLocator(epoch_size))
-		plt.gca().xaxis.set_minor_locator(MultipleLocator(minor_step))
-		epochs = [i for i in range(1+len(values)//epoch_size)]
+		plt.gca().xaxis.set_minor_locator(MultipleLocator(iter_step))
 		plt.gca().set_xticks([e*epoch_size for e in epochs], labels=map(str, epochs), rotation=-60)
 		plt.grid(True)
 
