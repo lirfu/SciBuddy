@@ -62,9 +62,13 @@ class LOG:
 
 	@staticmethod
 	def init(logger:Logger=StdoutLogger(), force=True):
-		if force or LOG.__instance is None:
+		if force or not LOG.is_inited():
 			LOG.__instance = LOG(logger)
 		return LOG.__instance
+
+	@staticmethod
+	def is_inited() -> bool:
+		return LOG.__instance is not None
 
 	@staticmethod
 	def d(*msgs, **kwargs):
