@@ -65,10 +65,32 @@ def draw_loss_curve(
 		color:str=None,
 		alpha:float=1.0,
 		linestyle:str='solid',
-		skip_decoration:bool=False,
-		max_epoch_ticks:Optional[int]=100):
+		skip_decoration:bool=False):
 	"""
 		Draws a loss curve with given sequence of values. Shows only numbers of epochs, minor ticks used for iterations.
+
+		Parameters
+		----------
+		loss_values
+			List of values to plot. Can be a list of values (plots line), 2-tuples (plots ranges) or 3-tuples (plots range with line in middle).
+		label
+			Name of the curve.
+		iteration_support
+			List of iteration index corresponding to each of the loss values.
+		epoch_size
+			Number of iterations in an epoch. Used to draw the major ticks of x-axis.
+		xlim
+			Clip display range of plot in X-axis.
+		ylim
+			Clip display range of plot in Y-axis.
+		color
+			Color to use for plots. Ranges will also apply 0.75 alpha.
+		alpha
+			Alpha to use for plots. Ranges will multiply with 0.75 alpha.
+		linestyle
+			Line style used to plot lines. Use any of the matplotlib linestyles or 'scatter' to use scatter plot instead.
+		skip_decoration
+			Skip setting clipping, ticks, axis names and grids.
 	"""
 	loss_values = np.array(loss_values)
 	if iteration_support is None:
@@ -76,6 +98,25 @@ def draw_loss_curve(
 	iteration_support = np.array(iteration_support)
 	epochs = np.array([i for i in range(1 + len(iteration_support)//epoch_size)])
 
+	def summarize(a:np.ndarray, group:int, mean=True):
+		t = len(a) // group
+		r = len(a) > t*group
+		if len(a.shape) < 2:
+			a = a.reshape(-1, 1)
+		residue_shape = a.shape[1]
+		b = np.zeros((t + int(r), residue_shape))
+		for i in range(residue_shape):
+			if mean:
+				b[:t,i] = a[:t*group,i].reshape(-1, group).mean(axis=1)
+				if r:
+					b[-1,i] = a[t*group:,i].mean()
+			else:
+				b[:t,i] = a[:t*group,i].reshape(-1, group)[:,0]
+				if r:
+					b[-1,i] = a[t*group,i]
+		return b.squeeze()
+
+	epoch_size_tick_size = epoch_size
 	# Show each iteration.
 	if len(epochs) < 2:
 		iter_step = 1
@@ -84,15 +125,18 @@ def draw_loss_curve(
 		iter_step = max(epoch_size // 10, 1)
 	# Show only epochs.
 	elif len(epochs) < 101:
-		iter_step = epoch_size
-	# Average down epochs.
+		iter_step = None
+		iteration_support = summarize(iteration_support, epoch_size, mean=False).astype(np.int32)
+		loss_values       = summarize(loss_values, epoch_size, mean=True)
+	# Average down epochs to -2 orders of magnitude.
 	else:
-		group_size = max(1, len(epochs) // max_epoch_ticks)
-		iter_step = group_size
-		epochs = epochs.reshape(-1, group_size)
-		iteration_support = iteration_support.reshape(-1, group_size*epoch_size).mean(axis=1)
-		loss_values       =       loss_values.reshape(-1, group_size*epoch_size).mean(axis=1)
-		epoch_size = group_size
+		oom = int(math.log10(len(epochs))) - 2
+		group_size = 10**oom
+		epochs = summarize(epochs, group_size, mean=False).astype(np.int32)
+		iteration_support = summarize(iteration_support, group_size*epoch_size, mean=False).astype(np.int32)
+		loss_values       = summarize(loss_values, group_size*epoch_size, mean=True)
+		epoch_size_tick_size = group_size
+		iter_step = None
 
 	# Scalar curves.
 	if len(loss_values.shape) == 1:
@@ -102,16 +146,14 @@ def draw_loss_curve(
 			plt.plot(iteration_support, loss_values, label=label, color=color, alpha=alpha, linestyle=linestyle)
 	# Range curves.
 	elif loss_values.shape[1] == 2:
-		p = plt.fill_between(list(range(1,1+len(loss_values))), [v[0] for v in loss_values], [v[1] for v in loss_values], label=label, color=color, alpha=0.75, linestyle=linestyle)
-		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')
-		# plt.plot(support, values[:,2], color=p.get_facecolor(), marker=3, linestyle='solid')
+		p = plt.fill_between(iteration_support, [v[0] for v in loss_values], [v[1] for v in loss_values], label=label, color=color, alpha=0.75*alpha, linestyle=linestyle)
 	# Distribution curves.
 	elif loss_values.shape[1] == 3:
-		p = plt.fill_between(list(range(1,1+len(loss_values))), [v[0] for v in loss_values], [v[2] for v in loss_values], label=label, color=color, alpha=0.75, linestyle=linestyle)
-		# plt.plot(support, values[:,0], color=p.get_facecolor(), marker=2, linestyle='solid')
-		# plt.plot(support, values[:,2], color=p.get_facecolor(), marker=3, linestyle='solid')
-		# plt.plot(support, values[:,1], color=p.get_facecolor(), marker='|', linestyle='dotted')
-		plt.plot(iteration_support, loss_values[:,1], color=p.get_facecolor(), marker=None, linestyle='solid')
+		p = plt.fill_between(iteration_support, [v[0] for v in loss_values], [v[2] for v in loss_values], label=label, color=color, alpha=0.75*alpha, linestyle=linestyle)
+		if linestyle == 'scatter':
+			plt.scatter(iteration_support, loss_values, label=label, color=color, alpha=alpha, marker='+')
+		else:
+			plt.plot(iteration_support, loss_values[:,1], color=p.get_facecolor(), alpha=alpha, linestyle=linestyle)
 	else:
 		raise RuntimeError('Unknown values shape: ' + str(loss_values.shape))
 
@@ -120,8 +162,9 @@ def draw_loss_curve(
 		plt.xlabel('Epochs')
 		plt.xlim(*xlim)
 		plt.ylim(*ylim)
-		plt.gca().xaxis.set_major_locator(MultipleLocator(epoch_size))
-		plt.gca().xaxis.set_minor_locator(MultipleLocator(iter_step))
+		plt.gca().xaxis.set_major_locator(MultipleLocator(epoch_size_tick_size))
+		if iter_step is not None:
+			plt.gca().xaxis.set_minor_locator(MultipleLocator(iter_step))
 		plt.gca().set_xticks([e*epoch_size for e in epochs], labels=map(str, epochs), rotation=-60)
 		plt.grid(True)
 
@@ -144,10 +187,9 @@ class RangeTracker:
 		  ylim:Tuple[Optional[float]]=(None,None),
 		  color:str=None,
 		  alpha:float=1.0,
-		  minor_step:int=10,
 		  linestyle:str='solid',
 		  skip_decoration:bool=False) -> None:
-		draw_loss_curve(self.values, self.name, support=support, epoch_size=epoch_size, xlim=xlim, ylim=ylim, color=color, alpha=alpha, minor_step=minor_step, linestyle=linestyle, skip_decoration=skip_decoration)
+		draw_loss_curve(self.values, self.name, iteration_support=support, epoch_size=epoch_size, xlim=xlim, ylim=ylim, color=color, alpha=alpha, linestyle=linestyle, skip_decoration=skip_decoration)
 
 def draw_top_model_epochs(m_epochs, m_losses, name='Top models', cmap='winter'):
 	data = sorted(zip(m_epochs, m_losses), key=lambda v: v[1])
