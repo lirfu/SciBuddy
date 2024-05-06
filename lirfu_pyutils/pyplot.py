@@ -60,8 +60,8 @@ def draw_loss_curve(
 		label:str,
 		iteration_support:List[int]=None,
 		epoch_size:int=1,
-		xlim:Tuple[Optional[float]]=(0,None),
-		ylim:Tuple[Optional[float]]=(None,None),
+		xlim:Tuple[Optional[float]]=None,
+		ylim:Tuple[Optional[float]]=None,
 		color:str=None,
 		alpha:float=1.0,
 		linestyle:str='solid',
@@ -160,8 +160,10 @@ def draw_loss_curve(
 	if not skip_decoration:
 		plt.ylabel('Loss')
 		plt.xlabel('Epochs')
-		plt.xlim(*xlim)
-		plt.ylim(*ylim)
+		if xlim is not None:
+			plt.xlim(*xlim)
+		if ylim is not None:
+			plt.ylim(*ylim)
 		plt.gca().xaxis.set_major_locator(MultipleLocator(epoch_size_tick_size))
 		if iter_step is not None:
 			plt.gca().xaxis.set_minor_locator(MultipleLocator(iter_step))
@@ -183,8 +185,8 @@ class RangeTracker:
 	def plot(self,
 		  support:List[int]=None,
 		  epoch_size:int=1,
-		  xlim:Tuple[Optional[float]]=(0,None),
-		  ylim:Tuple[Optional[float]]=(None,None),
+		  xlim:Tuple[Optional[float]]=None,
+		  ylim:Tuple[Optional[float]]=None,
 		  color:str=None,
 		  alpha:float=1.0,
 		  linestyle:str='solid',
