@@ -344,7 +344,7 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 def plt_set_fullscreen():
 	backend = str(plt.get_backend())
 	mgr = plt.get_current_fig_manager()
-	if backend == 'TkAgg':
+	if backend == 'TkAgg' or backend == 'tkagg':
 		if os.name == 'nt':
 			mgr.window.state('zoomed')
 		else:
@@ -354,7 +354,7 @@ def plt_set_fullscreen():
 	elif backend == 'Qt5Agg' or backend == 'Qt4Agg' or backend == 'QtAgg':
 		mgr.window.showMaximized()
 	else:
-		print('--> Cannot maximize pyplot wintow, unknown backend: ', backend)
+		print('--> Cannot maximize pyplot window, unknown backend: ', backend)
 
 class PlotImageGridContext:
 	def __init__(self, num_of_images, margins=0.01, quiet=True, aspect=16/9, colorbar=False, ticks=False, title=None, force_rows=None):
