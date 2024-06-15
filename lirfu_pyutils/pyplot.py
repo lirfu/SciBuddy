@@ -338,7 +338,7 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 		mask = mask_to_rgb(mask.numpy())
 	else:
 		RuntimeError('Unknown mask type:', type(mask))
-	mask *= alpha
+	mask = mask * alpha
 	return (1-mask) * img + mask * color
 
 def plt_set_fullscreen():
