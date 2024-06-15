@@ -25,7 +25,7 @@ class PlotContext:
 		self.filename = filename
 		self.show = show
 		self.fullscreen = fullscreen
-		self.clear = clear
+		self.clear_fig = clear
 		self.kwargs = kwargs
 
 	@staticmethod
@@ -45,7 +45,7 @@ class PlotContext:
 			plt.savefig(self.filename, bbox_inches='tight', pad_inches=0, transparent=False, dpi=self.kwargs.get('dpi', None))
 		if self.show:
 			plt.show()
-		if self.clear:
+		if self.clear_fig:
 			PlotContext.clear()
 
 def sample_cmap(cmap:str, N:int) -> List[Tuple[float,float,float,float]]:
