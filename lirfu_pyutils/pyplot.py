@@ -342,16 +342,16 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 	return (1-mask) * img + mask * color
 
 def plt_set_fullscreen():
-	backend = str(plt.get_backend())
+	backend = str(plt.get_backend()).upper()
 	mgr = plt.get_current_fig_manager()
-	if backend == 'TkAgg' or backend == 'tkagg':
+	if backend == 'TKAGG':
 		if os.name == 'nt':
 			mgr.window.state('zoomed')
 		else:
 			mgr.resize(*mgr.window.maxsize())
-	elif backend == 'wxAgg':
+	elif backend == 'WXAGG':
 		mgr.frame.Maximize(True)
-	elif backend == 'Qt5Agg' or backend == 'Qt4Agg' or backend == 'QtAgg':
+	elif backend == 'QT5AGG' or backend == 'QT4AGG' or backend == 'QTAGG':
 		mgr.window.showMaximized()
 	else:
 		print('--> Cannot maximize pyplot window, unknown backend: ', backend)

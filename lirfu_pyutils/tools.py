@@ -1,5 +1,4 @@
 import gc
-import math
 import signal
 import colorsys
 from os import getpid
@@ -150,7 +149,7 @@ class SignalCatcher:
 			Catch the signal by setting its flag and unregistering the handler.
 		"""
 		if signum in SignalCatcher._SIGNALS:
-			# print('lirfu_pyutils - Handling signal ' + signal.strsignal(signum))
+			print('[SignalCatches] Caught signal ' + signal.strsignal(signum))
 			SignalCatcher._SIGNALS[signum] = True
 			SignalCatcher.__reset_handler(signum)
 
