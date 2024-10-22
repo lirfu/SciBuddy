@@ -292,11 +292,12 @@ def mask_to_rgb(mask:np.ndarray) -> np.ndarray:
 	"""
 		Take a segmentation mask and convert it to RGB image.
 	"""
-	if len(mask.shape) == 2:
-		mask = mask[..., None]
-	if mask.shape[2] == 1:
+	if mask.shape[2] == 1:  # To RGB.
 		return mask.repeat(3, axis=2)
-	return mask
+	elif mask.shape[2] == 3:  # Keep RGB.
+		return mask
+	else:
+		raise RuntimeError('Mask shape not supported yet (only 1 and 3 channels supported): ' + str(mask.shape))
 	# else:
 	# 	mask_img = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.float32)
 	# 	int_mask = np.argmax(mask, axis=2)
@@ -307,7 +308,8 @@ def mask_to_rgb(mask:np.ndarray) -> np.ndarray:
 
 def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.Tensor], color:List[float]=[1,0,0], alpha:float=0.5) -> np.ndarray:
 	"""
-		Takes HWC numpy or CHW torch image and a same mask and returns their lerp in HWC format.
+		Takes HWC numpy or CHW torch image and a matching mask.
+		Returns their lerp in original format.
 
 		Parameters
 		----------
@@ -320,26 +322,34 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 		alpha : float
 			Percentage of influence of mask on the image. Default: 0.5
 	"""
+	t = False
 	if isinstance(img, torch.Tensor):
-		if img.shape[0] == 1:
+		t = True
+		# CHW to HWC
+		if len(img.shape) == 3:
 			img = img.permute(1,2,0)
+		if len(mask.shape) == 3:
+			mask = mask.permute(1,2,0)
+		# Use numpy for processing.
 		img = img.numpy()
-	else:
-		RuntimeError('Unknown img type:', type(img))
+		mask = mask.numpy()
+	# Ensure channels dimension.
 	if len(img.shape) == 2:
-		img = img[..., None]
+		img = img[:,:,None]
+	if len(mask.shape) == 2:
+		mask = mask[:,:,None]
+	# Ensure RGB image.
 	if img.shape[2] == 1:
 		img = img.repeat(3, axis=2)
 
+	# Colorize mask to RGB.
 	color = np.array(color).reshape(1,1,3)
-	if isinstance(mask, np.ndarray):
-		mask = mask_to_rgb(mask)
-	elif isinstance(mask, torch.Tensor):
-		mask = mask_to_rgb(mask.numpy())
-	else:
-		RuntimeError('Unknown mask type:', type(mask))
-	mask = mask * alpha
-	return (1-mask) * img + mask * color
+	mask = mask_to_rgb(mask) * alpha
+	img = (1-mask) * img + mask * color
+
+	if t:  # Tensorify and return to CHW.
+		return torch.tensor(img).permute(2,0,1)
+	return img
 
 def plt_set_fullscreen():
 	backend = str(plt.get_backend()).upper()
