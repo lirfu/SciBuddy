@@ -114,6 +114,9 @@ def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, num
 	return img
 
 def save_image(filepath, img, **kwargs):
+	"""
+		Saves image given as numpy array (HWC) or torch tensor (CHW) to the given file path.
+	"""
 	directory = os.path.dirname(filepath)
 	if directory != '':
 		os.makedirs(directory, exist_ok=True)
