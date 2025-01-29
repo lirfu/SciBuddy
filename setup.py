@@ -13,6 +13,8 @@ setup_info = dict(
     license='MIT',
     zip_safe=True,
 
+	packages=find_packages(),
+
 	install_requires=[
 		'numpy>=1.22.3',
 		'matplotlib>=3.2.2',
