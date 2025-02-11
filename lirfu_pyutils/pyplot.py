@@ -322,9 +322,8 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 		alpha : float
 			Percentage of influence of mask on the image. Default: 0.5
 	"""
-	t = False
-	if isinstance(img, torch.Tensor):
-		t = True
+	is_tensor = isinstance(img, torch.Tensor)
+	if is_tensor:
 		# CHW to HWC
 		if len(img.shape) == 3:
 			img = img.permute(1,2,0)
@@ -333,11 +332,13 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 		# Use numpy for processing.
 		img = img.numpy()
 		mask = mask.numpy()
+
 	# Ensure channels dimension.
 	if len(img.shape) == 2:
 		img = img[:,:,None]
 	if len(mask.shape) == 2:
 		mask = mask[:,:,None]
+
 	# Ensure RGB image.
 	if img.shape[2] == 1:
 		img = img.repeat(3, axis=2)
@@ -347,7 +348,7 @@ def mask_image(img:Union[np.ndarray,torch.Tensor], mask:Union[np.ndarray,torch.T
 	mask = mask_to_rgb(mask) * alpha
 	img = (1-mask) * img + mask * color
 
-	if t:  # Tensorify and return to CHW.
+	if is_tensor:  # Tensorify and return to CHW.
 		return torch.tensor(img).permute(2,0,1)
 	return img
 
