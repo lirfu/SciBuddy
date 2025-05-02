@@ -23,7 +23,7 @@ setup_info = dict(
 		'torchvision>=0.12.0',
 		'tqdm>=4.64.0',
 		'trimesh>=3.12.0',
-		'opencv-python>=4.5.5.64',
+		'opencv-python-headless>=4.5.5.64',
 		'pyyaml>=6.0',
 		'psutil>=5.9.0'
 	]
