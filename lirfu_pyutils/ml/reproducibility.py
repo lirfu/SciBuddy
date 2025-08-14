@@ -1,15 +1,8 @@
 import random
+
 import numpy as np
 import torch
 
-
-def test_print(a, name='array'):
-	'''
-		Prints stuff about the given torch.Tensor: name, value range, is any NaN, are all NaN, shape.
-		Returns the same array for convenience.
-	'''
-	print('{}   [{:+.3e}, {:+.3e}]   ({},{})   {}'.format(name, a.min().item(), a.max().item(), a.isnan().any().item(), a.isnan().all().item(), a.shape))
-	return a
 
 def reproducibility(seed:int, device:str='cpu', force_determinism:bool=False, benchmarking:bool=True):
 	'''
@@ -93,15 +86,3 @@ class ReproducibleContext:
 			torch.set_rng_state(self.tr_state)
 			if self.device.startswith('cuda'):
 				torch.cuda.set_rng_state(self.cuda_state, self.device)
-
-
-def get_device(device: str, index=0):
-	'''
-		Returns the torch device based on given string name and index (if applicable).
-	'''
-	if not isinstance(device, str):
-		return device
-	if device == 'cuda':
-		return torch.device('cuda', index)
-	else:
-		return torch.device('cpu')
