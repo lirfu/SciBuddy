@@ -1,7 +1,8 @@
-import os
 from typing import Tuple
 
-from .tools import Timer
+import os
+
+from . import Timer
 
 
 class Logger:
