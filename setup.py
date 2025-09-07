@@ -3,13 +3,13 @@ from setuptools import setup, find_packages
 VERSION = '0.0.1'
 
 setup_info = dict(
-    name='lirfu_pyutils',
+    name='SciBuddy',
     version=VERSION,
     author='Juraj Fulir',
     author_email='jurajfulir@gmail.com',
-    url='https://github.com/lirfu/lirfu_pyutils',
-    description='A Python toolkit of common utils.',
-    long_description='lirfu_pyutils contains a bunch of tools used for configurable experiment tracking, advanced logging, elegant data loading and plotting and much more.',
+    url='https://github.com/lirfu/SciBuddy',
+    description='A Python toolkit of common utils for data scientists.',
+    long_description='SciBuddy contains a bunch of tools used for configurable experiment tracking, advanced logging, elegant data loading and plotting and much more.',
     license='MIT',
     zip_safe=True,
 

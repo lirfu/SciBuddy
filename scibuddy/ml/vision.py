@@ -444,7 +444,7 @@ class CumulativeImageGhosting:
 if __name__ == '__main__':
 	torch.manual_seed(42)
 	# Display kernel functions.
-	from lirfu_pyutils.lirfu_pyutils.io.pyplot import show_images
+	from scibuddy.io.pyplot import show_images
 	size = 16
 	kernels = {
 		'Identity': IdentityKernel(),
