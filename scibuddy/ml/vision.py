@@ -5,7 +5,7 @@ import torch
 import torchvision
 from tqdm import tqdm
 
-from ..io.image import rb_to_rgb, chw_to_hwc
+from ..io.image import chw_to_hwc
 
 
 class ConvolutionKernel(torch.nn.Module):
@@ -514,7 +514,7 @@ if __name__ == '__main__':
 		if r.shape[0] == 2: # Stack in RB channels.
 			# print(f'Range for {n}: [{r.min()}, {r.max()}]  {r[:,15,4]}  {r[:,9,7]}  {r[:,20,7]}  {r[:,15,10]}')
 			r = (r - r.min()) / (r.max() - r.min())  # Normalize to [0,1].
-			r = rb_to_rgb(r)
+			r = rb_to_rgb(r)  # FIXME
 		images.append(chw_to_hwc(r).numpy())
 	show_images(*images, names=list(kernels.keys()), quiet=False)
 
