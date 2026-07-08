@@ -149,7 +149,7 @@ class CheckpointSaver:
 		fp = self.checkpoints[self.losses.argmin()]
 		if fp is None:  # Exception, when no models were stored.
 			return None, None
-		return torch.load(fp), fp
+		return torch.load(fp, weights_only=False), fp
 
 	def clear(self) -> None:
 		"""
