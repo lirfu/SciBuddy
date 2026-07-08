@@ -58,7 +58,7 @@ def gray_to_rgb(img):
 		raise RuntimeError('Unrecognized image shape: ' + str(l))
 	return img
 
-def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, numpy=False):
+def load_image(filepath:str, shape=None, convert=None, flip=False, as_hwc=False, numpy=False, sampler:str='bicubic'):
 	'''
 		Loads image into a torch.Tensor.
 
@@ -68,22 +68,31 @@ def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, num
 			Path to the source image.
 
 		shape: Tuple(2), optional
-			Target HW shape of the image after loading. If `None`, original size is kept. Default: None
+			Desired (H,W) shape of the image after loading.
+			If is a float value, multiplies the image size with it (with rounding).
+			If `None`, original size is kept.
+			Default: `None`
+
+		sampler: str, optional
+			The resampling algorithm used only to resize the image.
+			Choose between: `nearest`, `box`, `bilinear`, `hamming`, `bicubic`, `lanczos`.
+			Default: `bicubic`
 
 		convert: str, optional
 			Target Pillow format to which loaded image is converted.
-			Common values: `L` for 8-bit grayscale, `RGB` for 8-bit color, `I` for 32-bit integers,
-			`F` for 32-bit floats. Check Pillow documentation on 'Modes' for more options. If `None`,
-			original (Pillow automatic) format is kept. Default: None
+			Common modes: `L` for 8-bit grayscale, `RGB` for 8-bit color, `I` for 32-bit integers, `F` for 32-bit floats.
+			Check Pillow documentation on 'Modes' for more options.
+			If `None` original (Pillow automatic) format is kept.
+			Default: None
 
 		flip: bool, optional
-			Flips image vertically to match the right coordinate system. Default: False
+			Flips image vertically to match the right coordinate system. Default: `False`
 
 		as_hwc: bool, optional
-			Swaps the channels dimension to the end. Default: False
+			Swaps the channels dimension to the end. Default: `False`
 
 		numpy: bool, optional
-			Returns the image as a numpy.ndarray. Otherwise, as a torch.Tensor. Default: False
+			Returns the image as a numpy.ndarray. Otherwise, as a torch.Tensor. Default: `False`
 	'''
 	if not os.path.exists(filepath):
 		raise RuntimeError('Image file not found:', filepath)
@@ -93,7 +102,24 @@ def load_image(filepath, shape=None, convert=None, flip=False, as_hwc=False, num
 	if convert is not None:
 		img = img.convert(convert)
 	if shape is not None:
-		img = img.resize(shape[::-1])
+		if isinstance(shape, float):
+			shape = (img.size[1], img.size[0])
+			shape = (int(round(s*shape)) for s in shape)
+		if sampler == 'bicubic':
+			sampler = Image.Resampling.BICUBIC
+		elif sampler == 'nearest':
+			sampler = Image.Resampling.NEAREST
+		elif sampler == 'box':
+			sampler = Image.Resampling.BOX
+		elif sampler == 'bilinear':
+			sampler = Image.Resampling.BILINEAR
+		elif sampler == 'hamming':
+			sampler = Image.Resampling.HAMMING
+		elif sampler == 'lanczos':
+			sampler = Image.Resampling.LANCZOS
+		else:
+			raise RuntimeError('Unknown image sampler: ' + str(sampler))
+		img = img.resize(shape[::-1], resample=sampler)
 	if numpy:
 		img = np.array(img)  # HWC
 		if flip:
