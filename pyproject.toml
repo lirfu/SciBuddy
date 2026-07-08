@@ -3,7 +3,7 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools"]
 
 [project]
-name = "my-project"
+name = "scibuddy"
 version = "0.0.2"
 license = "MIT"
 description = "SciBuddy contains a bunch of tools used for configurable experiment tracking, advanced logging, elegant data loading and results plotting and much more."
